@@ -1,0 +1,54 @@
+[project]
+name = "edgecourt"
+version = "0.1.0"
+description = "Investigacion cuantitativa sobre mercados de tenis de Betfair Exchange. Paper betting unicamente."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+license = { text = "Proprietary" }
+
+# Dependencias minimas para PHASE 0-1.
+# Las dependencias de modelado (scikit-learn, xgboost, scipy) y red (httpx)
+# se anaden en su fase correspondiente, no antes. Ver IMPLEMENTATION_PLAN.md.
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "numpy>=2.1",
+    "pandas>=2.2",
+    "pyarrow>=18.0",
+    "duckdb>=1.1",
+]
+
+[project.scripts]
+edgecourt = "edgecourt.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/edgecourt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "critical: tests que bloquean el avance de fase si fallan",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.coverage.run]
+source = ["src/edgecourt"]
