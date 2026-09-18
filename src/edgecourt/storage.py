@@ -131,13 +131,23 @@ def dataset_summary(path: Path) -> dict[str, Any]:
     path = Path(path)
     if not path.exists():
         return {"path": str(path), "exists": False}
-    dataset = ds.dataset(path, format="parquet", partitioning="hive")
-    files = list(dataset.files)
+
+    # Un directorio de trabajo puede contener ficheros que no son Parquet (por
+    # ejemplo informes JSON), asi que se enumeran explicitamente en lugar de
+    # dejar que pyarrow intente leer todo lo que encuentre.
+    if path.is_dir():
+        sources = sorted(path.rglob("*.parquet"))
+        if not sources:
+            return {"path": str(path), "exists": True, "rows": 0, "files": 0, "bytes": 0}
+    else:
+        sources = [path]
+
+    dataset = ds.dataset(sources, format="parquet", partitioning="hive")
     return {
         "path": str(path),
         "exists": True,
         "rows": dataset.count_rows(),
         "columns": len(dataset.schema.names),
-        "files": len(files),
-        "bytes": sum(Path(f).stat().st_size for f in files),
+        "files": len(sources),
+        "bytes": sum(f.stat().st_size for f in sources),
     }

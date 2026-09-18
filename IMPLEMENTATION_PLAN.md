@@ -3,6 +3,13 @@
 Documento vivo. Cada fase es pequeña, verificable y tiene criterio de aceptación explícito.
 No se avanza de fase si los tests críticos de esa fase fallan.
 
+**Estado: PHASE 0 ✅ · PHASE 1 ✅ · siguiente: PHASE 2 (Elo).**
+
+**Orden de fases revisado (2026-09-18):** el collector de Betfair (PHASE 8) se adelanta a
+continuación de PHASE 3. Cada semana sin recolectar es muestra perdida que no se recupera,
+y sin histórico del exchange (R4) la validación económica solo puede ser hacia delante.
+El orden efectivo pasa a ser: 0 → 1 → 2 → 3 → **8 → 8b** → 4 → 5 → 6 → 7 → 9 → 10 → … → 15.
+
 **Pregunta de investigación (única métrica de éxito):**
 > ¿Podemos generar probabilidades de tenis suficientemente buenas como para identificar
 > de manera consistente situaciones donde el precio de Betfair ofrece esperanza matemática
@@ -45,6 +52,8 @@ Todas las desviaciones van en la dirección de *menos* piezas, no de más.
 | D8 | **`models/` y `data/` fuera de git** (solo `.gitkeep`) | §26. Los modelos se versionan por manifiesto JSON + hash, no por binario en git. |
 | D9 | **Un único proceso `predictor` con scheduler interno**, no varios daemons, hasta que haya motivo | En PHASE 15 se evalúa si `collector` y `predictor` deben separarse de verdad. |
 | D10 | **Sin dependencia de datos de Betfair históricos** para PHASES 1–7 | Ver R4. La validación de esas fases es puramente probabilística (Brier/LogLoss/calibración), no económica. |
+| D11 | **TennisMyLife como fuente primaria; mirror de Sackmann solo como contraste** | Los repos originales de Sackmann desaparecieron (verificado 2026-09-18). TML es la única fuente viva con estadísticas por partido y además aporta `indoor`. El mirror no entrena: audita. Ver `docs/DATA.md`. |
+| D12 | **`match_id` como hash de contenido**, no `tourney_id + match_num` | `match_num` está vacío en cientos de partidos reales de la fuente, lo que colapsaba esos partidos en un id nulo y los eliminaba al deduplicar. |
 
 ---
 
@@ -92,6 +101,15 @@ Un fallo aquí no produce un error visible, produce predicciones aplicadas al ju
 equivocado. Merece **fase propia (PHASE 8b)** con tabla de mapeo persistente, revisión
 manual de dudosos y **fallo explícito (nunca fuzzy-match silencioso)** cuando la confianza
 es baja. Un partido sin mapeo confiable se descarta, no se adivina.
+
+### R12 — Fuente de datos única y frágil — **ALTO** *(nuevo, 2026-09-18)*
+La fuente de referencia del sector (repos de Jeff Sackmann) **desapareció**. La sustituta
+viva, TennisMyLife, es un proyecto pequeño: si cae, no hay reemplazo gratuito inmediato, y
+su procedencia ("periódicos y blogs de tenis") no es auditable.
+*Mitigación:* los CSV crudos se conservan en `data/raw/` con manifiesto y SHA-256, de modo
+que el histórico ya descargado sobrevive a la caída del origen; contraste sistemático contra
+el mirror archivístico; validaciones aritméticas propias en cada ingesta. Verificado: 100 %
+de acuerdo en el ganador sobre 101.025 partidos contrastados.
 
 ### R6 — Tamaño de muestra necesario — **ESTRUCTURAL**
 Con stake plano y cuotas medias ~2.0, la desviación típica del retorno por apuesta es ≈1.0 u.
@@ -173,7 +191,7 @@ Engine produce un stake, y solo el Paper Ledger lo registra.
 
 Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
 
-### PHASE 0 — Bootstrap, configuración y andamiaje de tests
+### PHASE 0 — Bootstrap, configuración y andamiaje de tests ✅
 - `uv` en modo usuario + Python 3.13 del proyecto; `pyproject.toml`; venv.
 - Estructura de paquetes `src/edgecourt/` (§3), `.gitignore`, `.env.example`, `README` inicial.
 - `config.py` con Pydantic Settings tipado; `BETTING_MODE` restringido a `paper`.
@@ -184,7 +202,7 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
   (grep del árbol: sin `placeOrders`), `test_logging_redacts_secrets`, `test_storage_roundtrip`.
 - **Aceptación:** `uv run pytest` verde, `uv run edgecourt status` imprime entorno y modo.
 
-### PHASE 1 — Dataset histórico
+### PHASE 1 — Dataset histórico ✅
 - Documentar fuentes en `docs/DATA.md` (licencia, cobertura, campos, limitaciones).
   **No se descarga nada sin confirmación explícita del usuario.**
 - `data/ingest.py`: importa CSV/Parquet → esquema canónico `match_facts` validado (Pydantic
@@ -194,6 +212,9 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
 - **Tests:** `test_schema_validation`, `test_ab_randomization_balance`, `test_ordering_key_is_total`,
   `test_no_duplicate_match_ids`.
 - **Aceptación:** dataset canónico materializado; informe de cobertura (partidos/año, % nulos por campo).
+- **Resultado:** 113.544 partidos (1990–2026), `P(target=1)=0.5004`, 6,9 MB en Parquet.
+  Contraste contra el mirror: **100 % de acuerdo en el ganador** sobre 101.025 partidos.
+  Detalle en `docs/DATA.md`.
 
 ### PHASE 2 — Elo y Surface Elo
 - Elo global + hard/clay/grass, una pasada cronológica, K configurable.
@@ -235,7 +256,7 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
 - **Tests:** `test_walkforward_windows_disjoint`, `test_no_train_after_eval_date`.
 - **Aceptación:** estabilidad año a año del Brier skill score frente a Elo.
 
-### PHASE 8 — Betfair market data (solo lectura) + collector
+### PHASE 8 — Betfair market data (solo lectura) + collector ⏩ *(adelantada: va tras PHASE 3)*
 - Autenticación (cert o interactiva, decisión D7), listado de eventos/mercados de tenis,
   back/lay/liquidez/timestamp, snapshots a 24h/12h/6h/1h/10m/cierre (best-effort).
 - Snapshots en Parquet particionado por fecha; timestamp real de observación, nunca el teórico.

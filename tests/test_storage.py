@@ -115,3 +115,21 @@ def test_invalid_view_name_is_rejected(tmp_path, sample_matches):
     path = write_parquet(sample_matches, tmp_path / "m.parquet")
     with pytest.raises(ValueError, match="invalido"), duckdb_connection({"m; DROP TABLE x": path}):
         pass
+
+
+def test_dataset_summary_ignores_non_parquet_files(tmp_path, sample_matches):
+    """Un directorio de trabajo puede tener informes JSON junto a los Parquet."""
+    write_partitioned_parquet(sample_matches, tmp_path / "ds", partition_cols=["year"])
+    (tmp_path / "ds" / "report.json").write_text('{"generated": true}')
+
+    info = dataset_summary(tmp_path / "ds")
+    assert info["rows"] == 4
+
+
+def test_dataset_summary_on_directory_without_parquet(tmp_path):
+    (tmp_path / "results").mkdir()
+    (tmp_path / "results" / "report.json").write_text("{}")
+
+    info = dataset_summary(tmp_path / "results")
+    assert info["exists"] is True
+    assert info["rows"] == 0

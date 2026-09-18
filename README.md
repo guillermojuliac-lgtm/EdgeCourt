@@ -3,8 +3,9 @@
 Sistema ligero, modular y autónomo de **investigación cuantitativa** sobre mercados de tenis
 de Betfair Exchange.
 
-> **Estado actual: PHASE 0 completada.** Bootstrap, configuración, logging, almacenamiento y
-> andamiaje de tests. Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+> **Estado actual: PHASE 1 completada.** Bootstrap, configuración, almacenamiento, tests y
+> dataset histórico (113.544 partidos ATP, 1990–2026). Siguiente: Elo.
+> Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -98,8 +99,10 @@ handlers, tanto por valor conocido como por patrón.
 ## Uso
 
 ```bash
-uv run edgecourt status          # estado del sistema (implementado)
-uv run edgecourt data import     # PHASE 1
+uv run edgecourt status          # estado del sistema
+uv run edgecourt data fetch      # descargar CSV historicos (accion explicita)
+uv run edgecourt data import     # construir el dataset canonico match_facts
+uv run edgecourt data check      # contrastar con la fuente de referencia
 uv run edgecourt train           # PHASE 4-5
 uv run edgecourt backtest        # PHASE 7
 uv run edgecourt collector start # PHASE 8
@@ -117,8 +120,13 @@ Parquet es el almacén canónico; DuckDB es el motor de consulta sobre esos fich
 base de datos mutable que sea fuente de verdad, de modo que un dataset es reproducible por
 copia. Fuentes, esquema, licencias y política de exclusiones: [`docs/DATA.md`](docs/DATA.md).
 
-**No se descarga ningún dataset automáticamente.** Las fuentes se documentan y la descarga
-requiere una decisión explícita.
+**No se descarga ningún dataset automáticamente.** `edgecourt data fetch` es un comando
+explícito que declara sus fuentes antes de empezar.
+
+Fuente primaria: **TennisMyLife**. Fuente de contraste: mirror archivístico de los datos de
+**Jeff Sackmann**. Uso **no comercial**, con atribución a ambos. Los repositorios originales
+de Sackmann desaparecieron en 2026; el detalle de la investigación de fuentes, sus licencias
+y los riesgos está en [`docs/DATA.md`](docs/DATA.md).
 
 ## Entrenamiento, backtesting y métricas
 

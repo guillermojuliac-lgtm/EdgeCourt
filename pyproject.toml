@@ -16,6 +16,7 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=18.0",
     "duckdb>=1.1",
+    "httpx>=0.28",
 ]
 
 [project.scripts]
@@ -37,6 +38,7 @@ packages = ["src/edgecourt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q --strict-markers"
 markers = [
     "critical: tests que bloquean el avance de fase si fallan",
