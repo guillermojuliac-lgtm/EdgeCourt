@@ -72,6 +72,14 @@ class Settings(BaseSettings):
     kelly_fraction: float = Field(default=0.25, gt=0, le=0.25)
     betfair_commission: float = Field(default=0.05, ge=0.0, lt=1.0)
 
+    # --- Almacenamiento operativo (PostgreSQL) -----------------------------
+    # Vacio = PostgreSQL no configurado. El pipeline historico (Parquet) sigue
+    # funcionando sin base de datos.
+    database_url: str = ""
+    # Dias que las observaciones y precios permanecen en PostgreSQL. Nunca se
+    # purga nada sin una exportacion a Parquet verificada (tabla archive_run).
+    retention_days: int = Field(default=90, ge=7, le=3650)
+
     # --- Collector de Betfair (solo lectura, PHASE 8) ----------------------
     collector_interval_seconds: float = Field(default=60.0, ge=10.0, le=3600.0)
 

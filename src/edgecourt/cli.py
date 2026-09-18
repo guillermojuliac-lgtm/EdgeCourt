@@ -382,6 +382,157 @@ def _cmd_betfair_check(settings: Settings, args: argparse.Namespace) -> int:
     return 5
 
 
+def _db_connection(settings: Settings):
+    """Abre conexion a PostgreSQL con un mensaje claro si falta configuracion."""
+    from edgecourt.db.connection import connect, dsn_from_env
+
+    return connect(dsn_from_env(settings))
+
+
+def _cmd_db_migrate(settings: Settings, args: argparse.Namespace) -> int:
+    """Aplica las migraciones pendientes."""
+    from edgecourt.db.connection import dsn_from_env, redact_dsn, server_version
+    from edgecourt.db.migrate import current_version, discover, migrate, pending
+
+    dsn = dsn_from_env(settings)
+    print(f"Base de datos: {redact_dsn(dsn)}")
+
+    with _db_connection(settings) as connection:
+        print(f"  servidor : {server_version(connection).split(',')[0]}")
+        migrations = discover()
+        to_apply = pending(connection, migrations)
+
+        if args.dry_run:
+            print(f"  version actual: {current_version(connection)}")
+            if not to_apply:
+                print("  sin migraciones pendientes")
+                return 0
+            print(f"  pendientes ({len(to_apply)}):")
+            for migration in to_apply:
+                print(f"    {migration.version:03d}  {migration.name}")
+            return 0
+
+        applied = migrate(connection)
+        if not applied:
+            print(f"  esquema al dia (version {current_version(connection)})")
+            return 0
+        for migration in applied:
+            print(f"  aplicada {migration.version:03d}  {migration.name}")
+        print(f"  version final: {current_version(connection)}")
+    return 0
+
+
+def _cmd_db_status(settings: Settings, _args: argparse.Namespace) -> int:
+    """Estado del esquema y recuento de filas por tabla."""
+    from edgecourt.db.connection import dsn_from_env, redact_dsn
+    from edgecourt.db.migrate import current_version, discover, pending
+
+    print(f"Base de datos: {redact_dsn(dsn_from_env(settings))}")
+    with _db_connection(settings) as connection:
+        version = current_version(connection)
+        outstanding = pending(connection, discover())
+        print(f"  version de esquema : {version}")
+        print(f"  migraciones pendientes: {len(outstanding)}")
+        print(f"  retencion configurada : {settings.retention_days} dias")
+        print()
+
+        tables = [
+            "betfair_event",
+            "betfair_market",
+            "betfair_runner",
+            "market_observation",
+            "runner_price",
+            "model_version",
+            "prediction",
+            "paper_bet",
+            "bet_settlement",
+            "match_result",
+            "archive_run",
+        ]
+        print(f"  {'tabla':<22}{'filas':>12}")
+        print("  " + "-" * 34)
+        with connection.cursor() as cursor:
+            for table in tables:
+                try:
+                    cursor.execute(f"SELECT count(*) AS n FROM {table}")
+                    print(f"  {table:<22}{cursor.fetchone()['n']:>12,}")
+                except Exception:  # noqa: BLE001 - tabla aun no creada
+                    connection.rollback()
+                    print(f"  {table:<22}{'(no existe)':>12}")
+    return 0
+
+
+def _cmd_db_import_parquet(settings: Settings, args: argparse.Namespace) -> int:
+    """Migra los snapshots de Parquet a PostgreSQL. No destructivo."""
+    from edgecourt.db.import_parquet import import_snapshots, verify_import
+
+    print("Migracion de snapshots Parquet -> PostgreSQL")
+    print(f"  origen : {settings.odds_dir}")
+    print("  Los Parquet originales NO se modifican ni se borran.")
+    print()
+
+    with _db_connection(settings) as connection:
+        report = import_snapshots(connection, settings.odds_dir)
+        for key, value in report.as_dict().items():
+            print(
+                f"  {key:<28}: {value:>8,}" if isinstance(value, int) else f"  {key:<28}: {value}"
+            )
+
+        if report.skipped:
+            print()
+            print("  Filas omitidas:")
+            for item in report.skipped[:10]:
+                print(f"    - {item}")
+
+        print()
+        print("Verificacion:")
+        result = verify_import(connection, settings.odds_dir)
+        if not result.get("parquet_exists"):
+            print("  no hay Parquet de snapshots que verificar")
+            return 0
+        print(f"  filas en Parquet        : {result['parquet_rows']:,}")
+        print(f"  observaciones esperadas : {result['expected_observations']:,}")
+        print(f"  observaciones en la BD  : {result['observations_in_db']:,}")
+        print(f"  precios en la BD        : {result['runner_prices_in_db']:,}")
+        if result["ok"]:
+            print("  RESULTADO: todas las capturas del Parquet estan en PostgreSQL")
+            return 0
+        print(f"  RESULTADO: faltan {len(result['missing'])} capturas", file=sys.stderr)
+        for item in result["missing"][:10]:
+            print(f"    - {item}", file=sys.stderr)
+        return 4
+
+
+def _cmd_db_liquidity(settings: Settings, _args: argparse.Namespace) -> int:
+    """Curva de aparicion de liquidez respecto a la hora de inicio."""
+    from edgecourt.db.repositories import liquidity_emergence
+
+    with _db_connection(settings) as connection, connection.cursor() as cursor:
+        rows = liquidity_emergence(cursor)
+
+    if not rows:
+        print("Todavia no hay observaciones.")
+        return 0
+
+    print("Aparicion de liquidez respecto a market_start_time")
+    print(
+        f"  {'min. antes':>18}{'obs':>8}{'mercados':>10}{'%precios':>10}"
+        f"{'%liquidez':>11}{'liq.mediana':>13}"
+    )
+    print("  " + "-" * 68)
+    for row in rows:
+        rango = f"{row['minutos_antes_min']:.0f}-{row['minutos_antes_max']:.0f}"
+        print(
+            f"  {rango:>18}{row['observaciones']:>8,}{row['mercados']:>10,}"
+            f"{float(row['pct_con_precios']) * 100:>9.1f}%"
+            f"{float(row['pct_con_liquidez']) * 100:>10.1f}%"
+            f"{float(row['liquidez_mediana'] or 0):>13,.2f}"
+        )
+    print()
+    print("Esta tabla es la base para decidir MINIMUM_LIQUIDITY con datos.")
+    return 0
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -426,6 +577,14 @@ def build_parser() -> argparse.ArgumentParser:
     train = sub.add_parser("train", help="entrenar un modelo challenger")
     train.add_argument("--slot", default="challenger", choices=["challenger", "production"])
     train.add_argument("--min-matches", type=int, default=10, dest="min_matches")
+
+    db = sub.add_parser("db", help="almacenamiento operativo en PostgreSQL")
+    db_sub = db.add_subparsers(dest="subcommand", required=True)
+    mig = db_sub.add_parser("migrate", help="aplicar migraciones pendientes")
+    mig.add_argument("--dry-run", action="store_true", help="solo mostrar que se aplicaria")
+    db_sub.add_parser("status", help="version de esquema y recuento de filas")
+    db_sub.add_parser("import-parquet", help="migrar snapshots Parquet a PostgreSQL")
+    db_sub.add_parser("liquidity", help="curva de aparicion de liquidez")
 
     betfair = sub.add_parser("betfair", help="utilidades de la capa Betfair (solo lectura)")
     betfair_sub = betfair.add_subparsers(dest="subcommand", required=True)
@@ -518,6 +677,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data check": _cmd_data_check,
         "train": _cmd_train,
         "model compare": _cmd_model_compare,
+        "db migrate": _cmd_db_migrate,
+        "db status": _cmd_db_status,
+        "db import-parquet": _cmd_db_import_parquet,
+        "db liquidity": _cmd_db_liquidity,
         "betfair check": _cmd_betfair_check,
         "collector start": _cmd_collector_start,
         "collector status": _cmd_collector_status,

@@ -300,8 +300,11 @@ def test_keep_alive_uses_the_session_jurisdiction(credentialed):
         return httpx.Response(200, json={"status": "SUCCESS"})
 
     session = auth.Session(
-        FAKE_TOKEN, "k",
-        created_at=datetime.now(UTC), last_keep_alive=datetime.now(UTC), jurisdiction="es",
+        FAKE_TOKEN,
+        "k",
+        created_at=datetime.now(UTC),
+        last_keep_alive=datetime.now(UTC),
+        jurisdiction="es",
     )
     auth.keep_alive(session, client=_client(handler))
     assert urls == ["https://identitysso.betfair.es/api/keepAlive"]
@@ -315,8 +318,11 @@ def test_logout_uses_the_session_jurisdiction(credentialed):
         return httpx.Response(200, json={"status": "SUCCESS"})
 
     session = auth.Session(
-        FAKE_TOKEN, "k",
-        created_at=datetime.now(UTC), last_keep_alive=datetime.now(UTC), jurisdiction="it",
+        FAKE_TOKEN,
+        "k",
+        created_at=datetime.now(UTC),
+        last_keep_alive=datetime.now(UTC),
+        jurisdiction="it",
     )
     auth.logout(session, client=_client(handler))
     assert urls == ["https://identitysso.betfair.it/api/logout"]

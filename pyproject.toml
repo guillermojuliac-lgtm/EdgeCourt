@@ -19,6 +19,7 @@ dependencies = [
     "duckdb>=1.1",
     "httpx>=0.28",
     "scikit-learn>=1.6",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.scripts]
@@ -44,6 +45,7 @@ pythonpath = ["."]
 addopts = "-q --strict-markers"
 markers = [
     "critical: tests que bloquean el avance de fase si fallan",
+    "integration: requieren una PostgreSQL real (se omiten si no hay EDGECOURT_TEST_DSN)",
 ]
 
 [tool.ruff]
