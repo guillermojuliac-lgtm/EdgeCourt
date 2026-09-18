@@ -31,6 +31,7 @@ from edgecourt.market.auth import (
     MissingCredentialsError,
     SessionManager,
     _validate_credentials,
+    cert_login_url,
 )
 from edgecourt.market.client import MarketFilter, ReadOnlyBettingClient
 
@@ -59,6 +60,8 @@ class HealthReport:
     markets_found: int = 0
     events_found: int = 0
     sample: list[str] = field(default_factory=list)
+    login_endpoint: str = ""
+    betting_endpoint: str = ""
 
     @property
     def ok(self) -> bool:
@@ -208,6 +211,16 @@ def run_healthcheck(settings: Settings, *, sample_size: int = 5) -> HealthReport
         return report
     if not _check_certificate(settings, report):
         return report
+
+    from edgecourt.market.client import BETTING_API_BASE
+
+    report.login_endpoint = cert_login_url(settings.betfair_jurisdiction)
+    report.betting_endpoint = BETTING_API_BASE
+    report.add(
+        "Jurisdiccion",
+        True,
+        f"'{settings.betfair_jurisdiction}' -> {report.login_endpoint}",
+    )
 
     sessions = SessionManager(settings)
     try:

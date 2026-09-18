@@ -349,6 +349,7 @@ def _cmd_betfair_check(settings: Settings, args: argparse.Namespace) -> int:
     print("VERIFICACION DE BETFAIR — solo lectura, sin escribir nada")
     print(f"  modo           : {settings.betting_mode.upper()}")
     print(f"  apuestas reales: {'HABILITADAS' if REAL_BETTING_ENABLED else 'NO IMPLEMENTADAS'}")
+    print(f"  jurisdiccion   : {settings.betfair_jurisdiction}")
     print(f"  certificado    : {settings.betfair_cert_path}")
     print(f"  clave          : {settings.betfair_key_path}")
     print()
@@ -358,6 +359,12 @@ def _cmd_betfair_check(settings: Settings, args: argparse.Namespace) -> int:
     width = max(len(check.name) for check in report.checks) if report.checks else 20
     for check in report.checks:
         print(f"  [{check.symbol:^5}] {check.name:<{width}}  {check.detail}")
+
+    if report.login_endpoint:
+        print()
+        print("  Endpoints utilizados:")
+        print(f"    login   : {report.login_endpoint}")
+        print(f"    betting : {report.betting_endpoint}")
 
     if report.sample:
         print()

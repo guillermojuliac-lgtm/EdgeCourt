@@ -233,3 +233,101 @@ def test_manager_reports_missing_credentials_not_a_file_error(settings_factory):
     with pytest.raises(auth.MissingCredentialsError) as excinfo:
         manager.current()
     assert "BETFAIR_CERT_PATH" in str(excinfo.value)
+
+
+# --- Jurisdicciones -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("jurisdiction", "expected"),
+    [
+        ("com", "https://identitysso-cert.betfair.com/api/certlogin"),
+        ("es", "https://identitysso-cert.betfair.es/api/certlogin"),
+        ("it", "https://identitysso-cert.betfair.it/api/certlogin"),
+        ("ro", "https://identitysso-cert.betfair.ro/api/certlogin"),
+        ("com.au", "https://identitysso-cert.betfair.com.au/api/certlogin"),
+    ],
+)
+def test_cert_login_url_per_jurisdiction(jurisdiction, expected):
+    assert auth.cert_login_url(jurisdiction) == expected
+
+
+def test_identity_urls_follow_the_jurisdiction():
+    assert auth.identity_url("keepAlive", "es") == "https://identitysso.betfair.es/api/keepAlive"
+    assert auth.identity_url("logout", "it") == "https://identitysso.betfair.it/api/logout"
+
+
+def test_unknown_jurisdiction_is_rejected():
+    with pytest.raises(ValueError, match="no soportada"):
+        auth.cert_login_url("fr")
+
+
+@pytest.mark.critical
+def test_login_uses_the_configured_jurisdiction_endpoint(credentialed):
+    """Una cuenta espanola debe autenticarse contra el dominio espanol."""
+    urls: list[str] = []
+
+    def handler(request):
+        urls.append(str(request.url))
+        return httpx.Response(200, json={"loginStatus": "SUCCESS", "sessionToken": FAKE_TOKEN})
+
+    spanish = credentialed.model_copy(update={"betfair_jurisdiction": "es"})
+    session = auth.login(spanish, client=_client(handler))
+
+    assert urls == ["https://identitysso-cert.betfair.es/api/certlogin"]
+    assert session.jurisdiction == "es"
+
+
+@pytest.mark.critical
+def test_domain_error_explains_how_to_fix_it(credentialed):
+    """`AUTHORIZED_ONLY_FOR_DOMAIN_ES` debe decir exactamente que variable ajustar."""
+    handler = lambda r: httpx.Response(  # noqa: E731
+        200, json={"loginStatus": "AUTHORIZED_ONLY_FOR_DOMAIN_ES"}
+    )
+    with pytest.raises(auth.AuthenticationError) as excinfo:
+        auth.login(credentialed, client=_client(handler))
+
+    message = str(excinfo.value)
+    assert "AUTHORIZED_ONLY_FOR_DOMAIN_ES" in message
+    assert "BETFAIR_JURISDICTION=es" in message
+
+
+def test_keep_alive_uses_the_session_jurisdiction(credentialed):
+    urls: list[str] = []
+
+    def handler(request):
+        urls.append(str(request.url))
+        return httpx.Response(200, json={"status": "SUCCESS"})
+
+    session = auth.Session(
+        FAKE_TOKEN, "k",
+        created_at=datetime.now(UTC), last_keep_alive=datetime.now(UTC), jurisdiction="es",
+    )
+    auth.keep_alive(session, client=_client(handler))
+    assert urls == ["https://identitysso.betfair.es/api/keepAlive"]
+
+
+def test_logout_uses_the_session_jurisdiction(credentialed):
+    urls: list[str] = []
+
+    def handler(request):
+        urls.append(str(request.url))
+        return httpx.Response(200, json={"status": "SUCCESS"})
+
+    session = auth.Session(
+        FAKE_TOKEN, "k",
+        created_at=datetime.now(UTC), last_keep_alive=datetime.now(UTC), jurisdiction="it",
+    )
+    auth.logout(session, client=_client(handler))
+    assert urls == ["https://identitysso.betfair.it/api/logout"]
+
+
+def test_default_jurisdiction_is_global(settings_factory):
+    assert settings_factory().betfair_jurisdiction == "com"
+
+
+def test_invalid_jurisdiction_is_rejected_by_settings(settings_factory):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        settings_factory(betfair_jurisdiction="fr")

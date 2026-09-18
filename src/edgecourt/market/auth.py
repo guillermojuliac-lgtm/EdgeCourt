@@ -39,9 +39,32 @@ from edgecourt.logging_setup import get_logger
 
 log = get_logger("collector.auth")
 
-CERT_LOGIN_URL = "https://identitysso-cert.betfair.com/api/certlogin"
-KEEP_ALIVE_URL = "https://identitysso.betfair.com/api/keepAlive"
-LOGOUT_URL = "https://identitysso.betfair.com/api/logout"
+# El servicio de identidad de Betfair esta segmentado por jurisdiccion. Una
+# cuenta espanola que se autentique contra el endpoint global recibe
+# `AUTHORIZED_ONLY_FOR_DOMAIN_ES`; lo mismo ocurre con Italia y Rumania.
+# Endpoints verificados en la documentacion oficial (Non-Interactive bot login).
+#
+# La Betting API (api.betfair.com/exchange/betting) NO se deriva de aqui: la
+# documentacion no indica que cambie por jurisdiccion, asi que se deja como
+# estaba y se comprueba empiricamente en el healthcheck.
+JURISDICTIONS: tuple[str, ...] = ("com", "es", "it", "ro", "com.au")
+
+
+def cert_login_url(jurisdiction: str = "com") -> str:
+    """Endpoint de login por certificado de la jurisdiccion indicada."""
+    if jurisdiction not in JURISDICTIONS:
+        raise ValueError(
+            f"Jurisdiccion no soportada: {jurisdiction!r}. Validas: {', '.join(JURISDICTIONS)}"
+        )
+    return f"https://identitysso-cert.betfair.{jurisdiction}/api/certlogin"
+
+
+def identity_url(operation: str, jurisdiction: str = "com") -> str:
+    """Endpoint de keepAlive o logout de la jurisdiccion indicada."""
+    if jurisdiction not in JURISDICTIONS:
+        raise ValueError(f"Jurisdiccion no soportada: {jurisdiction!r}")
+    return f"https://identitysso.betfair.{jurisdiction}/api/{operation}"
+
 
 # Betfair invalida la sesion tras 4 horas de inactividad para la API de apuestas.
 # Se renueva con bastante antelacion para no depender de la frontera exacta.
@@ -67,6 +90,7 @@ class Session:
     app_key: str
     created_at: datetime
     last_keep_alive: datetime
+    jurisdiction: str = "com"
 
     @property
     def age(self) -> timedelta:
@@ -142,8 +166,9 @@ def login(settings: Settings, *, client: httpx.Client | None = None) -> Session:
         client = httpx.Client(verify=build_ssl_context(settings), timeout=REQUEST_TIMEOUT_SECONDS)
 
     try:
+        login_url = cert_login_url(settings.betfair_jurisdiction)
         response = client.post(
-            CERT_LOGIN_URL,
+            login_url,
             data={
                 "username": settings.betfair_username,
                 "password": settings.betfair_password,
@@ -164,23 +189,39 @@ def login(settings: Settings, *, client: httpx.Client | None = None) -> Session:
     status = payload.get("loginStatus")
     if status != "SUCCESS":
         # `loginStatus` es un codigo de Betfair, nunca contiene credenciales.
-        raise AuthenticationError(f"Login rechazado por Betfair: {status}")
+        message = f"Login rechazado por Betfair: {status}"
+        if isinstance(status, str) and status.startswith("AUTHORIZED_ONLY_FOR_DOMAIN_"):
+            domain = status.rsplit("_", 1)[-1].lower()
+            message += (
+                f". La cuenta pertenece a la jurisdiccion '{domain}': "
+                f"define BETFAIR_JURISDICTION={domain} en tu .env"
+            )
+        raise AuthenticationError(message)
 
     token = payload.get("sessionToken")
     if not token:
         raise AuthenticationError("Betfair no devolvio token de sesion")
 
     now = datetime.now(UTC)
-    log.info("sesion iniciada", extra={"login_status": status})
+    log.info(
+        "sesion iniciada",
+        extra={"login_status": status, "jurisdiction": settings.betfair_jurisdiction},
+    )
     return Session(
-        token=token, app_key=settings.betfair_app_key, created_at=now, last_keep_alive=now
+        token=token,
+        app_key=settings.betfair_app_key,
+        created_at=now,
+        last_keep_alive=now,
+        jurisdiction=settings.betfair_jurisdiction,
     )
 
 
 def keep_alive(session: Session, *, client: httpx.Client) -> bool:
     """Renueva la sesion. Devuelve False si Betfair ya no la reconoce."""
     try:
-        response = client.post(KEEP_ALIVE_URL, headers=session.headers())
+        response = client.post(
+            identity_url("keepAlive", session.jurisdiction), headers=session.headers()
+        )
         response.raise_for_status()
         payload = response.json()
     except httpx.HTTPError as exc:
@@ -198,7 +239,7 @@ def keep_alive(session: Session, *, client: httpx.Client) -> bool:
 def logout(session: Session, *, client: httpx.Client) -> None:
     """Cierra la sesion. Se llama siempre al apagar, tambien ante SIGTERM."""
     try:
-        client.post(LOGOUT_URL, headers=session.headers())
+        client.post(identity_url("logout", session.jurisdiction), headers=session.headers())
         log.info("sesion cerrada")
     except httpx.HTTPError as exc:  # pragma: no cover - best effort
         log.warning("logout fallido", extra={"error": str(exc)})

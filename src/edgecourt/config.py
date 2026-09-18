@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     betfair_app_key: str = ""
     betfair_cert_path: Path | None = None
     betfair_key_path: Path | None = None
+    # Jurisdiccion de la cuenta. El servicio de identidad de Betfair esta
+    # segmentado por dominio: una cuenta espanola autenticada contra el endpoint
+    # global recibe AUTHORIZED_ONLY_FOR_DOMAIN_ES.
+    betfair_jurisdiction: Literal["com", "es", "it", "ro", "com.au"] = "com"
 
     # --- Riesgo (paper) ----------------------------------------------------
     bankroll: float = Field(default=1000.0, gt=0)
