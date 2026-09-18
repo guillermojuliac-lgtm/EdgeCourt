@@ -11,6 +11,7 @@ import pandas as pd
 
 from edgecourt.config import Settings
 from edgecourt.data import splits
+from edgecourt.features.builder import build_features, feature_coverage
 from edgecourt.features.elo import EloConfig, compute_elo, elo_probability
 from edgecourt.logging_setup import get_logger
 from edgecourt.metrics import probabilistic as metrics
@@ -19,6 +20,7 @@ from edgecourt.storage import read_parquet, write_partitioned_parquet
 log = get_logger("features.pipeline")
 
 ELO_DATASET = "elo"
+FEATURES_DATASET = "features"
 MATCHES_DATASET = "matches"
 
 # Variantes del benchmark Elo que se comparan entre si.
@@ -38,6 +40,72 @@ class EloBuildResult:
     last_year: int
 
 
+@dataclass(slots=True)
+class FeatureBuildResult:
+    rows: int
+    features: int
+    destination: Path
+    coverage: pd.DataFrame
+
+
+def _ordered_matches(settings: Settings) -> pd.DataFrame:
+    """Carga `match_facts` en el unico orden que el calculo secuencial admite."""
+    matches = read_parquet(settings.processed_dir / MATCHES_DATASET)
+    return matches.sort_values(
+        ["date", "tourney_id", "round_order", "match_num"], kind="mergesort", na_position="last"
+    ).reset_index(drop=True)
+
+
+def build_feature_table(settings: Settings) -> FeatureBuildResult:
+    """Genera la tabla de features y la une con los ratings Elo.
+
+    El Elo se une por `match_id`: ya se calculo con la misma garantia de orden y
+    repetirlo aqui seria duplicar codigo y riesgo.
+    """
+    matches = _ordered_matches(settings)
+    features = build_features(matches)
+
+    elo = read_parquet(settings.processed_dir / ELO_DATASET)
+    elo_columns = [
+        "match_id",
+        "elo_diff",
+        "surface_elo_diff",
+        "elo_a_matches_before",
+        "elo_b_matches_before",
+    ]
+    features = features.merge(elo[elo_columns], on="match_id", how="left")
+
+    destination = settings.processed_dir / FEATURES_DATASET
+    write_partitioned_parquet(features, destination, partition_cols=["year"])
+
+    coverage = feature_coverage(features)
+    _write_report(
+        settings,
+        {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "rows": len(features),
+            "feature_count": len(coverage),
+            "coverage": coverage.to_dict(orient="records"),
+        },
+        "feature_report.json",
+    )
+
+    return FeatureBuildResult(
+        rows=len(features),
+        features=len(coverage),
+        destination=destination,
+        coverage=coverage,
+    )
+
+
+def _write_report(settings: Settings, payload: dict, name: str) -> Path:
+    settings.results_dir.mkdir(parents=True, exist_ok=True)
+    path = settings.results_dir / name
+    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    log.info("informe escrito", extra={"path": str(path)})
+    return path
+
+
 def build_elo(settings: Settings, config: EloConfig | None = None) -> EloBuildResult:
     """Calcula el Elo sobre todo el historico disponible y lo persiste.
 
@@ -46,11 +114,7 @@ def build_elo(settings: Settings, config: EloConfig | None = None) -> EloBuildRe
     leakage -cada partido solo ve su pasado- pero si es necesario para que los
     ratings de los primeros anos evaluados esten maduros.
     """
-    matches = read_parquet(settings.processed_dir / MATCHES_DATASET)
-    matches = matches.sort_values(
-        ["date", "tourney_id", "round_order", "match_num"], kind="mergesort", na_position="last"
-    ).reset_index(drop=True)
-
+    matches = _ordered_matches(settings)
     elo = compute_elo(matches, config)
     destination = settings.processed_dir / ELO_DATASET
     write_partitioned_parquet(elo, destination, partition_cols=["year"])
@@ -160,8 +224,5 @@ def evaluate_elo(
                 metrics=table.to_dict(orient="records"),
             )
 
-    path = settings.results_dir / "elo_benchmark.json"
-    settings.results_dir.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
-    log.info("informe escrito", extra={"path": str(path)})
+    _write_report(settings, results, "elo_benchmark.json")
     return results

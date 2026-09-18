@@ -26,7 +26,6 @@ from edgecourt.storage import dataset_summary
 
 # Subcomandos previstos y fase en la que se implementan.
 PENDING: dict[str, tuple[str, str]] = {
-    "features build": ("PHASE 3", "Generar la tabla de features"),
     "train": ("PHASE 4-5", "Entrenar un modelo challenger"),
     "backtest": ("PHASE 7", "Validacion temporal walk-forward"),
     "collector start": ("PHASE 8", "Recoger snapshots de cuotas de Betfair (solo lectura)"),
@@ -207,6 +206,22 @@ def _cmd_elo_evaluate(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_features_build(settings: Settings, _args: argparse.Namespace) -> int:
+    """Genera la tabla de features sin leakage temporal."""
+    result = features_pipeline.build_feature_table(settings)
+    print(f"Features generadas: {result.rows:,} partidos x {result.features} features")
+    print(f"  destino: {result.destination}")
+    print()
+    print(f"  {'feature':<34}{'cobertura':>11}{'media':>12}{'desv.':>12}")
+    print("  " + "-" * 67)
+    for row in result.coverage.to_dict(orient="records"):
+        print(
+            f"  {row['feature']:<34}{row['coverage_pct']:>10.1f}%"
+            f"{row['mean']:>12.4f}{row['std']:>12.4f}"
+        )
+    return 0
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -247,6 +262,10 @@ def build_parser() -> argparse.ArgumentParser:
     check = data_sub.add_parser("check", help="contrastar con la fuente de referencia")
     check.add_argument("--from-year", type=int, default=2000, dest="from_year")
     check.add_argument("--to-year", type=int, default=None, dest="to_year")
+
+    feats = sub.add_parser("features", help="generacion de features")
+    feats_sub = feats.add_subparsers(dest="subcommand", required=True)
+    feats_sub.add_parser("build", help="generar la tabla de features")
 
     elo = sub.add_parser("elo", help="Elo global y por superficie")
     elo_sub = elo.add_subparsers(dest="subcommand", required=True)
@@ -299,6 +318,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data fetch": _cmd_data_fetch,
         "data import": _cmd_data_import,
         "data check": _cmd_data_check,
+        "features build": _cmd_features_build,
         "elo build": _cmd_elo_build,
         "elo evaluate": _cmd_elo_evaluate,
     }

@@ -3,7 +3,7 @@
 Documento vivo. Cada fase es pequeña, verificable y tiene criterio de aceptación explícito.
 No se avanza de fase si los tests críticos de esa fase fallan.
 
-**Estado: PHASE 0 ✅ · PHASE 1 ✅ · PHASE 2 ✅ · siguiente: PHASE 3 (feature engineering).**
+**Estado: PHASE 0 ✅ · PHASE 1 ✅ · PHASE 2 ✅ · PHASE 3 ✅ · siguiente: PHASE 8 (collector Betfair).**
 
 **Orden de fases revisado (2026-09-18):** el collector de Betfair (PHASE 8) se adelanta a
 continuación de PHASE 3. Cada semana sin recolectar es muestra perdida que no se recupera,
@@ -236,13 +236,17 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
   el edge que se busca). No es utilizable como generador de probabilidades para el Value Engine
   sin calibrar: eleva la prioridad de PHASE 6. Detalle en `docs/MODELS.md`.
 
-### PHASE 3 — Feature engineering
+### PHASE 3 — Feature engineering ✅
 - Features de §7, todas relativas A−B, todas construidas con `shift` estricto (R1).
 - Cada feature documentada en `docs/MODELS.md`: definición, ventana, justificación, nulos.
 - **Tests (máxima prioridad):** `test_no_future_data_leakage` (test de envenenamiento),
   `test_feature_generation`, `test_features_antisymmetry` (invertir A/B invierte el signo),
   `test_null_policy`.
 - **Aceptación:** los 4 tests verdes. Un fallo aquí **bloquea todas las fases siguientes**.
+- **Resultado:** 21 features + 5 de contexto sobre 113.544 partidos. Máximo AUC univariante
+  **0,7298** (`elo_diff`), sin ninguna señal de leakage. Control positivo: las mismas métricas
+  tomadas del propio partido darían AUC 0,9171 — la diferencia mide el tamaño de la trampa
+  evitada. Todas las features con media ≈ 0 (antisimetría confirmada). Ver `docs/MODELS.md`.
 
 ### PHASE 4 — Logistic Regression baseline
 - Pipeline sklearn (imputación + escalado + LogReg), entrenado solo con TRAIN.

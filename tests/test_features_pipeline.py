@@ -139,3 +139,55 @@ def test_elo_dataset_contains_no_outcome_columns(settings_with_matches):
     stored = read_parquet(result.destination)
     forbidden = set(stored.columns) & schema.FORBIDDEN_AS_FEATURE
     assert not forbidden, f"El dataset de Elo expone columnas prohibidas: {forbidden}"
+
+
+# --- Tabla de features --------------------------------------------------------
+
+
+def test_build_feature_table_persists_and_joins_elo(settings_with_matches):
+    from edgecourt.features.builder import FEATURE_NAMES
+
+    settings = settings_with_matches
+    features_pipeline.build_elo(settings)
+    result = features_pipeline.build_feature_table(settings)
+
+    assert result.rows == 320
+    assert result.features == len(FEATURE_NAMES)
+
+    stored = read_parquet(result.destination)
+    assert len(stored) == 320
+    # El Elo llega por union, no se recalcula.
+    assert "elo_diff" in stored.columns
+    assert stored["elo_diff"].notna().any()
+
+
+@pytest.mark.critical
+def test_feature_table_carries_no_outcome_columns(settings_with_matches):
+    """La tabla persistida no puede contener el resultado de los partidos."""
+    from edgecourt.data import schema
+
+    settings = settings_with_matches
+    features_pipeline.build_elo(settings)
+    result = features_pipeline.build_feature_table(settings)
+
+    stored = read_parquet(result.destination)
+    leaked = set(stored.columns) & schema.FORBIDDEN_AS_FEATURE
+    assert not leaked, f"La tabla de features expone columnas prohibidas: {leaked}"
+
+
+def test_feature_table_writes_a_coverage_report(settings_with_matches):
+    settings = settings_with_matches
+    features_pipeline.build_elo(settings)
+    features_pipeline.build_feature_table(settings)
+
+    report = json.loads((settings.results_dir / "feature_report.json").read_text())
+    assert report["rows"] == 320
+    assert report["coverage"]
+    assert {"feature", "coverage_pct", "mean", "std"} <= set(report["coverage"][0])
+
+
+def test_feature_table_is_partitioned_by_year(settings_with_matches):
+    settings = settings_with_matches
+    features_pipeline.build_elo(settings)
+    result = features_pipeline.build_feature_table(settings)
+    assert (result.destination / "year=2023").is_dir()

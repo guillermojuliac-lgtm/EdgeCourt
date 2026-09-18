@@ -50,25 +50,79 @@ Tres reglas, en orden de importancia:
 3. **Ninguna feature entra "porque está disponible".** Cada una se documenta abajo con
    definición, ventana, justificación y política de nulos. Sin justificación, no entra.
 
-## Catálogo de features *(PHASE 3)*
+## Catálogo de features — implementado (PHASE 3)
 
-Previstas, pendientes de implementar y documentar una por una:
+21 features relativas A−B, más 5 columnas de contexto. Todas se generan en una **única pasada
+cronológica** con el orden estricto: leer estado previo → emitir features → *solo entonces*
+incorporar el partido al historial. El no-leakage no depende de recordar aplicar un `shift`:
+depende del orden de las operaciones, fijado por tests de envenenamiento.
 
-| Grupo | Features |
-|---|---|
-| Ranking | `ranking_diff`, `rank_points_diff` |
-| Elo | `elo_diff`, `surface_elo_diff` |
-| Forma | `winrate_last_{5,10,20}_diff`, `surface_winrate_diff` |
-| Servicio | `first_serve_pct_diff`, `first_serve_points_won_diff`, `second_serve_points_won_diff` |
-| Resto | `return_points_won_diff` |
-| Puntos de break | `break_points_saved_diff`, `break_points_converted_diff` |
-| Ritmo | `aces_rate_diff`, `double_fault_rate_diff` |
-| Fatiga | `days_since_last_match_diff`, `matches_last_{7,14}_days_diff`, `minutes_played_last_7_days_diff` |
-| H2H | `head_to_head_before_match` |
-| Contexto | `tournament_level`, `surface`, `round`, `indoor` |
+| Feature | Definición | Ventana | Justificación | Cobertura |
+|---|---|---|---|---|
+| `ranking_diff` | rank A − rank B | — | Valoración oficial del circuito. Signo invertido: menor ranking es mejor | 97,4 % |
+| `rank_points_diff` | puntos ATP A − B | — | Escala continua, sin los saltos discretos de la posición | 94,9 % |
+| `age_diff` | edad A − B | — | Curva de rendimiento por edad | 99,2 % |
+| `height_diff` | altura A − B | — | Proxy de potencia de saque | 95,2 % |
+| `elo_diff` | Elo global A − B | todo el historial | Mejor predictor individual (AUC 0,730) | 99,9 % |
+| `surface_elo_diff` | Elo de superficie A − B | por superficie | Especialización por superficie | 96,9 % |
+| `winrate_last_{5,10,20}_diff` | % victorias A − B | 5/10/20 partidos | Forma reciente a tres horizontes | 89,8 / 84,0 / 75,8 % |
+| `surface_winrate_diff` | % victorias en la superficie | ≥5 partidos | Adaptación a la superficie | 80,0 % |
+| `first_serve_pct_diff` | 1ºs saques dentro / puntos al saque | 20 partidos | Fiabilidad del primer saque | 89,9 % |
+| `first_serve_points_won_diff` | puntos ganados con 1º saque | 20 partidos | Eficacia del saque principal | 89,9 % |
+| `second_serve_points_won_diff` | puntos ganados con 2º saque | 20 partidos | Solidez bajo presión; discrimina bien (AUC 0,643) | 89,9 % |
+| `return_points_won_diff` | puntos ganados al resto | 20 partidos | Derivada del saque del rival | 89,9 % |
+| `break_points_saved_diff` | % bolas de break salvadas | 20 partidos | Rendimiento en puntos decisivos | 89,8 % |
+| `break_points_converted_diff` | % bolas de break convertidas | 20 partidos | Capacidad de romper el saque | 89,5 % |
+| `aces_rate_diff` | aces / puntos al saque | 20 partidos | Potencia de saque | 89,9 % |
+| `double_fault_rate_diff` | dobles faltas / puntos al saque | 20 partidos | Fragilidad del saque | 89,9 % |
+| `days_since_last_match_diff` | días desde el último partido | — | Descanso y falta de ritmo | 97,0 % |
+| `matches_last_{7,14}_days_diff` | partidos disputados | 7/14 días | Fatiga acumulada | 100 % |
+| `minutes_played_last_7_days_diff` | minutos jugados | 7 días | Fatiga ponderada por duración | 100 % |
+| `head_to_head_before_match` | victorias A − victorias B | histórico del par | Emparejamientos de estilo | 100 % |
 
-**Todas las del grupo Servicio/Resto/Break/Ritmo son medias móviles de partidos anteriores.**
-Nunca el valor del partido en curso. Este es el punto donde el proyecto se rompería en silencio.
+Contexto (conocido antes del partido, uso legítimo): `tourney_level`, `surface`, `round`,
+`indoor`, `best_of`. Más `player_{a,b}_matches_before`, para poder filtrar partidos con
+historial insuficiente.
+
+### Decisiones
+
+- **Ventana de 20 partidos** para las estadísticas de servicio y resto: media temporada de un
+  jugador de tour. Suficiente para promediar el ruido, corta para seguir reflejando el estado
+  actual.
+- **Mínimos de muestra**: 5 partidos para la forma reciente, 5 para el winrate por superficie,
+  3 observaciones para una media de estadísticas. Por debajo, la feature es nula.
+- **Sin imputación.** Un valor ausente se propaga como nulo. Imputar es decisión del pipeline
+  del modelo, explícita y documentada, no algo que deba ocurrir a escondidas aquí.
+- **Métricas de resto derivadas del saque del rival**: los puntos que el rival no ganó con su
+  servicio son los que el jugador ganó al resto. Es la única forma de obtenerlas del formato.
+- **Los walkovers no alimentan el historial.** No se jugó: no hay información de rendimiento.
+
+### Verificación de ausencia de leakage sobre datos reales
+
+Además de los tests de envenenamiento, se midió el poder predictivo univariante de cada feature
+sobre TRAIN 2000–2022. Si alguna filtrase el resultado, su AUC se dispararía.
+
+**Máximo observado: 0,7298** (`elo_diff`). Todos los valores son plausibles para tenis y, lo
+más importante, **todas las direcciones tienen sentido físico**: `ranking_diff` sale invertido
+(AUC 0,302) porque un ranking menor es mejor, y `double_fault_rate_diff` también (0,441) porque
+más dobles faltas es peor. Un generador con leakage no produce este patrón coherente.
+
+**Control positivo.** Se midió qué ocurriría usando las mismas métricas pero tomadas del
+partido que se predice — el error clásico del análisis de tenis:
+
+| Métrica | Del propio partido (leakage) | Media móvil previa (EdgeCourt) |
+|---|---|---|
+| `first_serve_points_won` | **0,9171** | 0,6242 |
+| `break_points_saved` | 0,7525 | 0,5773 |
+| `aces_rate` | 0,7090 | 0,5674 |
+
+Un AUC de 0,92 con una sola variable es exactamente el espejismo que este módulo existe para
+evitar. La diferencia de casi 0,30 en AUC cuantifica el tamaño de la trampa.
+
+### Distribución
+
+Las 21 features tienen media ≈ 0 sobre los 113.544 partidos, lo que confirma la antisimetría y
+la aleatorización A/B en datos reales: ningún lado está sistemáticamente favorecido.
 
 ## Elo y Surface Elo — implementado (PHASE 2)
 
