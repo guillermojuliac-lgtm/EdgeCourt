@@ -19,12 +19,13 @@ from datetime import date
 from edgecourt import __version__
 from edgecourt.config import REAL_BETTING_ENABLED, Settings, get_settings
 from edgecourt.data import pipeline
+from edgecourt.data import splits as splits_module
+from edgecourt.features import pipeline as features_pipeline
 from edgecourt.logging_setup import get_logger, secrets_from_settings, setup_logging
 from edgecourt.storage import dataset_summary
 
 # Subcomandos previstos y fase en la que se implementan.
 PENDING: dict[str, tuple[str, str]] = {
-    "elo build": ("PHASE 2", "Calcular Elo global y por superficie"),
     "features build": ("PHASE 3", "Generar la tabla de features"),
     "train": ("PHASE 4-5", "Entrenar un modelo challenger"),
     "backtest": ("PHASE 7", "Validacion temporal walk-forward"),
@@ -149,6 +150,63 @@ def _cmd_data_check(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_elo_build(settings: Settings, _args: argparse.Namespace) -> int:
+    """Calcula el Elo global y por superficie sobre todo el historico."""
+    result = features_pipeline.build_elo(settings)
+    print(f"Elo calculado: {result.rows:,} partidos")
+    print(f"  destino  : {result.destination}")
+    print(f"  jugadores: {result.players:,}")
+    print(f"  anos     : {result.first_year}-{result.last_year}")
+    return 0
+
+
+def _print_metrics_table(rows: list[dict]) -> None:
+    header = f"  {'modelo':<16}{'n':>8}{'Brier':>10}{'LogLoss':>10}{'Acc':>9}{'AUC':>8}{'ECE':>8}"
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    for row in rows:
+        print(
+            f"  {row['model']:<16}{row['n']:>8,}{row['brier']:>10.5f}{row['log_loss']:>10.5f}"
+            f"{row['accuracy']:>9.4f}{row['roc_auc']:>8.4f}{row['ece']:>8.4f}"
+        )
+
+
+def _print_calibration(table: list[dict]) -> None:
+    print(f"    {'bucket':<14}{'n':>8}{'%':>7}{'predicha':>11}{'observada':>11}{'gap':>9}")
+    for row in table:
+        print(
+            f"    {row['bucket']:<14}{row['n']:>8,}{row['pct_of_total']:>7.1f}"
+            f"{row['mean_predicted']:>11.4f}{row['observed_freq']:>11.4f}{row['gap']:>9.4f}"
+        )
+
+
+def _cmd_elo_evaluate(settings: Settings, args: argparse.Namespace) -> int:
+    """Evalua el benchmark Elo sobre los conjuntos temporales."""
+    split_names = tuple(args.splits)
+    results = features_pipeline.evaluate_elo(
+        settings, split_names=split_names, min_matches=args.min_matches
+    )
+
+    print("BENCHMARK ELO")
+    print(f"  minimo de partidos previos por jugador: {args.min_matches}")
+    print()
+    for split_name in split_names:
+        data = results["splits"][split_name]
+        print(f"{split_name.upper()}  ({data['n_matches']:,} partidos)")
+        _print_metrics_table(data["metrics"])
+        print()
+        if args.calibration:
+            for model, table in data["calibration"].items():
+                print(f"  calibracion: {model}")
+                _print_calibration(table)
+                print()
+
+    consulted = splits_module.count_test_evaluations(settings.results_dir)
+    if "test" in split_names:
+        print(f"Evaluaciones sobre TEST registradas hasta ahora: {consulted}")
+    return 0
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -190,6 +248,20 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--from-year", type=int, default=2000, dest="from_year")
     check.add_argument("--to-year", type=int, default=None, dest="to_year")
 
+    elo = sub.add_parser("elo", help="Elo global y por superficie")
+    elo_sub = elo.add_subparsers(dest="subcommand", required=True)
+    elo_sub.add_parser("build", help="calcular el Elo sobre todo el historico")
+
+    evaluate = elo_sub.add_parser("evaluate", help="evaluar el benchmark Elo")
+    evaluate.add_argument(
+        "--splits",
+        nargs="+",
+        default=["validation", "test"],
+        choices=["train", "validation", "test", "live"],
+    )
+    evaluate.add_argument("--min-matches", type=int, default=10, dest="min_matches")
+    evaluate.add_argument("--no-calibration", action="store_false", dest="calibration")
+
     # Subcomandos pendientes, agrupados por familia cuando tienen subniveles.
     groups: dict[str, argparse.ArgumentParser] = {}
     for key in PENDING:
@@ -227,6 +299,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data fetch": _cmd_data_fetch,
         "data import": _cmd_data_import,
         "data check": _cmd_data_check,
+        "elo build": _cmd_elo_build,
+        "elo evaluate": _cmd_elo_evaluate,
     }
     if key in handlers:
         return handlers[key](settings, args)

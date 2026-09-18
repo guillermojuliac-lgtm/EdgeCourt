@@ -3,8 +3,8 @@
 Sistema ligero, modular y autónomo de **investigación cuantitativa** sobre mercados de tenis
 de Betfair Exchange.
 
-> **Estado actual: PHASE 1 completada.** Bootstrap, configuración, almacenamiento, tests y
-> dataset histórico (113.544 partidos ATP, 1990–2026). Siguiente: Elo.
+> **Estado actual: PHASE 2 completada.** Dataset histórico (113.544 partidos ATP, 1990–2026)
+> y benchmark Elo con Brier skill de +11,3 % sobre TEST. Siguiente: feature engineering.
 > Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ---
@@ -103,6 +103,8 @@ uv run edgecourt status          # estado del sistema
 uv run edgecourt data fetch      # descargar CSV historicos (accion explicita)
 uv run edgecourt data import     # construir el dataset canonico match_facts
 uv run edgecourt data check      # contrastar con la fuente de referencia
+uv run edgecourt elo build       # calcular Elo global y por superficie
+uv run edgecourt elo evaluate    # benchmark Elo con calibracion por buckets
 uv run edgecourt train           # PHASE 4-5
 uv run edgecourt backtest        # PHASE 7
 uv run edgecourt collector start # PHASE 8

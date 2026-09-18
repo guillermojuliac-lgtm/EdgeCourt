@@ -3,7 +3,7 @@
 Documento vivo. Cada fase es pequeña, verificable y tiene criterio de aceptación explícito.
 No se avanza de fase si los tests críticos de esa fase fallan.
 
-**Estado: PHASE 0 ✅ · PHASE 1 ✅ · siguiente: PHASE 2 (Elo).**
+**Estado: PHASE 0 ✅ · PHASE 1 ✅ · PHASE 2 ✅ · siguiente: PHASE 3 (feature engineering).**
 
 **Orden de fases revisado (2026-09-18):** el collector de Betfair (PHASE 8) se adelanta a
 continuación de PHASE 3. Cada semana sin recolectar es muestra perdida que no se recupera,
@@ -101,6 +101,13 @@ Un fallo aquí no produce un error visible, produce predicciones aplicadas al ju
 equivocado. Merece **fase propia (PHASE 8b)** con tabla de mapeo persistente, revisión
 manual de dudosos y **fallo explícito (nunca fuzzy-match silencioso)** cuando la confianza
 es baja. Un partido sin mapeo confiable se descarta, no se adivina.
+
+### R13 — Sobreconfianza del modelo confundida con value — **ALTO** *(nuevo, 2026-09-18)*
+Medido en PHASE 2: el Elo tiene un ECE de ~0,055, mientras que el umbral de edge por defecto
+es 0,03. Un modelo mal calibrado genera "value" aparente justo donde su sesgo es mayor —en
+los favoritos claros—, y esas apuestas parecerían las más atractivas.
+*Mitigación:* ningún modelo alimenta al Value Engine sin pasar por calibración (PHASE 6), y el
+ECE out-of-sample se convierte en requisito de entrada, no en una métrica informativa más.
 
 ### R12 — Fuente de datos única y frágil — **ALTO** *(nuevo, 2026-09-18)*
 La fuente de referencia del sector (repos de Jeff Sackmann) **desapareció**. La sustituta
@@ -216,13 +223,18 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
   Contraste contra el mirror: **100 % de acuerdo en el ganador** sobre 101.025 partidos.
   Detalle en `docs/DATA.md`.
 
-### PHASE 2 — Elo y Surface Elo
+### PHASE 2 — Elo y Surface Elo ✅
 - Elo global + hard/clay/grass, una pasada cronológica, K configurable.
 - Persistencia de `elo_*_before` por partido y snapshot de ratings finales.
 - **Tests:** `test_elo_is_chronological`, `test_elo_zero_sum`, `test_elo_no_future_data`,
   `test_surface_elo_isolated`.
 - **Aceptación:** Elo supera claramente a la moneda y al ranking ATP puro en el VALIDATION set
   (Brier y LogLoss reportados). Es nuestro benchmark base.
+- **Resultado:** Brier skill vs moneda **+9,9 % (VAL 2023)** y **+11,3 % (TEST 2024-25)**, estable.
+  Mejor variante: mezcla 50/50 global+superficie. Tests bloqueantes en verde.
+- **Hallazgo:** el Elo está **sistemáticamente sobreconfiado** (ECE ≈ 0,055, del mismo orden que
+  el edge que se busca). No es utilizable como generador de probabilidades para el Value Engine
+  sin calibrar: eleva la prioridad de PHASE 6. Detalle en `docs/MODELS.md`.
 
 ### PHASE 3 — Feature engineering
 - Features de §7, todas relativas A−B, todas construidas con `shift` estricto (R1).
