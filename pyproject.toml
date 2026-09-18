@@ -7,8 +7,9 @@ requires-python = ">=3.13,<3.14"
 license = { text = "Proprietary" }
 
 # Dependencias minimas para PHASE 0-1.
-# Las dependencias de modelado (scikit-learn, xgboost, scipy) y red (httpx)
-# se anaden en su fase correspondiente, no antes. Ver IMPLEMENTATION_PLAN.md.
+# Las dependencias se anaden en su fase correspondiente, no antes.
+# scikit-learn entra en PHASE 4 (regresion logistica); xgboost llegara en
+# PHASE 5. Ver IMPLEMENTATION_PLAN.md.
 dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
@@ -17,6 +18,7 @@ dependencies = [
     "pyarrow>=18.0",
     "duckdb>=1.1",
     "httpx>=0.28",
+    "scikit-learn>=1.6",
 ]
 
 [project.scripts]

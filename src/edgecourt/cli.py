@@ -26,12 +26,10 @@ from edgecourt.storage import dataset_summary
 
 # Subcomandos previstos y fase en la que se implementan.
 PENDING: dict[str, tuple[str, str]] = {
-    "train": ("PHASE 4-5", "Entrenar un modelo challenger"),
     "backtest": ("PHASE 7", "Validacion temporal walk-forward"),
     "predict": ("PHASE 9", "Generar predicciones y evaluar value"),
     "paper status": ("PHASE 11", "Estado del ledger de paper betting"),
     "metrics": ("PHASE 12", "Calcular metricas: Brier, CLV, ROI, drawdown"),
-    "model compare": ("PHASE 13", "Comparar Production vs Challenger"),
 }
 
 
@@ -265,6 +263,85 @@ def _cmd_collector_status(settings: Settings, _args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_train(settings: Settings, args: argparse.Namespace) -> int:
+    """Entrena la regresion logistica y la compara con los benchmarks Elo."""
+    from edgecourt.training import pipeline as training
+
+    print("Entrenando regresion logistica")
+    print(f"  TRAIN      : {splits_module.SPLITS['train'][0]}-{splits_module.SPLITS['train'][1]}")
+    print(f"  VALIDATION : {splits_module.SPLITS['validation'][0]}")
+    print(f"  ranura     : {args.slot}")
+    print(f"  min. partidos previos: {args.min_matches}")
+    print()
+
+    result = training.train_logistic(settings, min_matches=args.min_matches, slot=args.slot)
+
+    print(f"Modelo: {result.model_id}")
+    print(f"  filas de entrenamiento: {result.n_train:,}")
+    print(f"  C elegido (solo VALIDATION): {result.model.config.C}")
+    print()
+    print("  Busqueda de hiperparametros (VALIDATION)")
+    print(f"    {'C':>8}{'Brier':>10}{'LogLoss':>10}{'ECE':>9}")
+    for row in result.search.to_dict(orient="records"):
+        print(f"    {row['C']:>8}{row['brier']:>10.5f}{row['log_loss']:>10.5f}{row['ece']:>9.4f}")
+    print()
+    print("  Coeficientes (escalados, top 10)")
+    for row in result.coefficients.head(10).to_dict(orient="records"):
+        print(f"    {row['feature']:<34}{row['coefficient_scaled']:>10.4f}")
+    return 0
+
+
+def _cmd_model_compare(settings: Settings, args: argparse.Namespace) -> int:
+    """Compara el ultimo challenger con los benchmarks Elo."""
+    from edgecourt.models.registry import latest_model
+    from edgecourt.training import pipeline as training
+
+    loaded = latest_model(settings.models_dir / args.slot)
+    if loaded is None:
+        print(f"No hay ningun modelo en la ranura '{args.slot}'.", file=sys.stderr)
+        return 4
+    model, manifest = loaded
+
+    results = training.compare_against_elo(
+        settings,
+        model,
+        split_names=tuple(args.splits),
+        min_matches=args.min_matches,
+        model_id=manifest.model_id,
+    )
+
+    print(f"COMPARACION — {manifest.model_id}")
+    print(
+        f"  entrenado con {manifest.train_first_year}-{manifest.train_last_year} "
+        f"({manifest.n_train_rows:,} partidos)"
+    )
+    print(f"  minimo de partidos previos: {args.min_matches}")
+    print()
+
+    for split_name in args.splits:
+        data = results["splits"][split_name]
+        print(f"{split_name.upper()}  ({data['n_matches']:,} partidos)")
+        header = (
+            f"  {'modelo':<22}{'n':>8}{'Brier':>10}{'LogLoss':>10}"
+            f"{'Acc':>9}{'AUC':>8}{'ECE':>8}{'vs Elo':>9}"
+        )
+        print(header)
+        print("  " + "-" * (len(header) - 2))
+        for row in data["metrics"]:
+            print(
+                f"  {row['model']:<22}{row['n']:>8,}{row['brier']:>10.5f}{row['log_loss']:>10.5f}"
+                f"{row['accuracy']:>9.4f}{row['roc_auc']:>8.4f}{row['ece']:>8.4f}"
+                f"{row['brier_skill_vs_elo']:>9.4f}"
+            )
+        print()
+        if args.calibration:
+            for name, table in data["calibration"].items():
+                print(f"  calibracion: {name}")
+                _print_calibration(table)
+                print()
+    return 0
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -306,6 +383,10 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--from-year", type=int, default=2000, dest="from_year")
     check.add_argument("--to-year", type=int, default=None, dest="to_year")
 
+    train = sub.add_parser("train", help="entrenar un modelo challenger")
+    train.add_argument("--slot", default="challenger", choices=["challenger", "production"])
+    train.add_argument("--min-matches", type=int, default=10, dest="min_matches")
+
     collector = sub.add_parser("collector", help="collector de cuotas de Betfair (solo lectura)")
     collector_sub = collector.add_subparsers(dest="subcommand", required=True)
     start = collector_sub.add_parser("start", help="arrancar el collector")
@@ -321,6 +402,19 @@ def build_parser() -> argparse.ArgumentParser:
     feats = sub.add_parser("features", help="generacion de features")
     feats_sub = feats.add_subparsers(dest="subcommand", required=True)
     feats_sub.add_parser("build", help="generar la tabla de features")
+
+    model = sub.add_parser("model", help="operaciones sobre modelos")
+    model_sub = model.add_subparsers(dest="subcommand", required=True)
+    compare = model_sub.add_parser("compare", help="comparar un modelo con los benchmarks Elo")
+    compare.add_argument("--slot", default="challenger", choices=["challenger", "production"])
+    compare.add_argument(
+        "--splits",
+        nargs="+",
+        default=["validation", "test"],
+        choices=["train", "validation", "test", "live"],
+    )
+    compare.add_argument("--min-matches", type=int, default=10, dest="min_matches")
+    compare.add_argument("--no-calibration", action="store_false", dest="calibration")
 
     elo = sub.add_parser("elo", help="Elo global y por superficie")
     elo_sub = elo.add_subparsers(dest="subcommand", required=True)
@@ -373,6 +467,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data fetch": _cmd_data_fetch,
         "data import": _cmd_data_import,
         "data check": _cmd_data_check,
+        "train": _cmd_train,
+        "model compare": _cmd_model_compare,
         "collector start": _cmd_collector_start,
         "collector status": _cmd_collector_status,
         "features build": _cmd_features_build,

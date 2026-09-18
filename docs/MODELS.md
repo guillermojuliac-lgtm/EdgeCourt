@@ -225,6 +225,136 @@ probabilidad.
 El peso 0.5 es un valor por defecto razonable, no un óptimo ajustado. Optimizarlo se deja para
 cuando haya un modelo de verdad que lo consuma.
 
+## MODEL 2: Regresión logística — implementado (PHASE 4)
+
+Baseline lineal sobre las 21 features de PHASE 3 más `elo_diff` y `surface_elo_diff` (23 en
+total).
+
+### Diseño antisimétrico por construcción
+
+El problema tiene una simetría que este modelo explota: como la asignación A/B es aleatoria,
+intercambiar los lados debe invertir exactamente la predicción,
+`P(A | −X) = 1 − P(A | X)`. Tres decisiones lo garantizan:
+
+| Decisión | Motivo |
+|---|---|
+| **Sin intercepto** (`fit_intercept=False`) | Un intercepto no nulo significaría "el lado A gana más a menudo", que es falso por construcción |
+| **Imputación con 0**, no con la mediana | Toda feature es una diferencia A−B: un 0 es exactamente "sin diferencia conocida". La mediana introduciría un sesgo de lado |
+| **Escalado sin centrar** (`with_mean=False`) | Restar una media no nula desplazaría el origen y rompería la simetría |
+
+Consecuencia: el modelo **no puede** aprender un sesgo hacia el lado A aunque quisiera, lo que
+elimina una familia entera de errores silenciosos. Verificado en `test_model_is_antisymmetric_by_construction`.
+Efecto secundario útil: con todas las features nulas, la predicción es exactamente 0,5.
+
+### Por qué el contexto queda fuera
+
+`surface`, `round`, `tourney_level`, `indoor` y `best_of` **no entran** en este modelo. No es un
+olvido: en un problema antisimétrico, una variable que no distingue entre A y B no puede
+informar sobre quién gana. Si el modelo aprendiera "en tierra gana A con probabilidad 0,52",
+estaría aprendiendo ruido, porque A es una etiqueta lanzada a cara o cruz. El contexto solo
+puede aportar **en interacción** con features antisimétricas —por ejemplo, que el Elo de
+superficie pese más en tierra—, y eso se explorará por separado.
+
+### Selección de hiperparámetros
+
+`C` se elige **solo sobre VALIDATION 2023**, por Log Loss y no por accuracy. La rejilla se
+extendió una vez, al comprobar que el óptimo caía en el borde inferior; con la rejilla final
+(8 candidatos) el óptimo queda en el interior, que es la condición mínima para afirmar que se
+ha encontrado un óptimo.
+
+**C elegido: 0,0003** (regularización fuerte). El presupuesto de búsqueda queda registrado en
+el manifiesto del modelo.
+
+### Resultados
+
+Mismos conjuntos, mismos filtros y **exactamente las mismas filas** que el benchmark Elo de
+PHASE 2: ≥10 partidos previos de ambos jugadores, sin walkovers.
+
+**VALIDATION 2023** (2.481 partidos)
+
+| modelo | Brier | Log Loss | Accuracy\* | ROC-AUC | ECE | skill vs Elo |
+|---|---|---|---|---|---|---|
+| **logistic_regression** | **0,21641** | **0,62069** | 0,6465 | **0,7086** | **0,0159** | **+4,71 %** |
+| elo_blend_50 | 0,22534 | 0,64459 | 0,6348 | 0,6916 | 0,0559 | +0,78 % |
+| elo_global | 0,22711 | 0,65022 | 0,6348 | 0,6883 | 0,0610 | — |
+| elo_surface | 0,23182 | 0,66224 | 0,6260 | 0,6807 | 0,0774 | −2,07 % |
+| moneda | 0,25000 | 0,69315 | 0,5010 | 0,5000 | 0,0010 | −10,08 % |
+
+**TEST 2024–2025** (5.104 partidos)
+
+| modelo | Brier | Log Loss | Accuracy\* | ROC-AUC | ECE | skill vs Elo |
+|---|---|---|---|---|---|---|
+| **logistic_regression** | **0,21422** | **0,61541** | 0,6507 | **0,7149** | **0,0135** | **+3,60 %** |
+| elo_blend_50 | 0,22173 | 0,63428 | 0,6350 | 0,6996 | 0,0551 | +0,22 % |
+| elo_global | 0,22222 | 0,63579 | 0,6391 | 0,6992 | 0,0529 | — |
+| elo_surface | 0,22876 | 0,65274 | 0,6356 | 0,6863 | 0,0665 | −2,94 % |
+| moneda | 0,25000 | 0,69315 | 0,4998 | 0,5000 | 0,0002 | −12,50 % |
+
+\* Accuracy solo como referencia; no se optimiza.
+
+### El resultado que más importa: la calibración
+
+El ECE cae de **0,053 a 0,0135** en TEST — cuatro veces mejor. Comparación por buckets:
+
+| bucket | n | LogReg predicha → observada | gap | Elo predicha → observada | gap |
+|---|--:|---|--:|---|--:|
+| [0,1–0,2) | 276 | 0,159 → 0,174 | **+0,015** | 0,155 → 0,232 | +0,078 |
+| [0,3–0,4) | 784 | 0,351 → 0,364 | **+0,012** | 0,351 → 0,435 | +0,083 |
+| [0,6–0,7) | 791 | 0,649 → 0,626 | **−0,023** | 0,650 → 0,576 | −0,073 |
+| [0,8–0,9) | 269 | 0,842 → 0,848 | **+0,005** | 0,848 → 0,770 | −0,078 |
+
+El patrón monótono de sobreconfianza del Elo **desaparece**. Esto responde directamente al
+riesgo R13: con el Elo crudo, un ECE de 0,055 fabricaba "value" aparente del mismo orden que el
+umbral de edge. La regresión logística calibrada reduce ese ruido a 0,0135.
+
+### Salvedad honesta: el modelo es más conservador
+
+Parte de la mejora en calibración viene de que la regularización fuerte encoge las
+predicciones hacia 0,5. En VALIDATION, la LogReg coloca solo el **0,8 %** de sus predicciones
+en el bucket [0,9–1,0), frente al **2,6 %** del Elo.
+
+Implicación para el Value Engine: un modelo conservador discrepará del mercado con menos
+frecuencia y por menos margen, así que **cabe esperar menos oportunidades de value, no más**.
+Eso no es un defecto —una probabilidad conservadora y correcta vale más que una extrema y
+sesgada—, pero conviene anticiparlo antes de interpretar el volumen de apuestas de PHASE 9.
+
+### Coeficientes
+
+Los diez pesos mayores (escalados):
+
+| feature | peso |
+|---|---|
+| `surface_elo_diff` | +0,4465 |
+| `elo_diff` | +0,2330 |
+| `rank_points_diff` | +0,1665 |
+| `age_diff` | −0,1636 |
+| `return_points_won_diff` | +0,1613 |
+| `first_serve_points_won_diff` | +0,1327 |
+| `ranking_diff` | −0,1052 |
+| `matches_last_14_days_diff` | +0,0987 |
+| `winrate_last_20_diff` | −0,0952 |
+| `second_serve_points_won_diff` | +0,0902 |
+
+Dos lecturas interesantes. **`surface_elo_diff` pesa el doble que `elo_diff`**, pese a ser peor
+predictor por separado: aporta información que el Elo global no tiene, y el modelo la prefiere
+cuando dispone de ambas. Y **`winrate_last_20_diff` sale negativo**, lo que parece
+contraintuitivo; lo más probable es colinealidad con el Elo, que ya recoge la forma reciente,
+de modo que el residuo actúa como corrección. No se ha investigado a fondo: es candidato a
+revisión, no una conclusión.
+
+Los signos de `ranking_diff` (negativo, un ranking menor es mejor) y `age_diff` (negativo) son
+los esperados.
+
+### Versionado
+
+Cada modelo se guarda con manifiesto JSON: identificador, fecha, rango temporal de los datos,
+lista y hash de features, hiperparámetros, presupuesto de búsqueda, hash SHA-256 del artefacto
+y métricas de validación. Cargar un modelo verifica el hash, de modo que un binario sustituido
+se detecta en lugar de producir predicciones distintas en silencio.
+
+El entrenamiento guarda en `models/challenger/` por defecto: nada entra en producción de forma
+automática.
+
 ## Calibración *(PHASE 6)*
 
 - **Sigmoid/Platt** cuando la muestra es limitada.

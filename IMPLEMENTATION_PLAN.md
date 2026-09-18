@@ -3,7 +3,7 @@
 Documento vivo. Cada fase es pequeña, verificable y tiene criterio de aceptación explícito.
 No se avanza de fase si los tests críticos de esa fase fallan.
 
-**Estado: PHASE 0 ✅ · PHASE 1 ✅ · PHASE 2 ✅ · PHASE 3 ✅ · PHASE 8 ✅ (pendiente de credenciales) · siguiente: PHASE 8b o PHASE 4.**
+**Estado: PHASE 0 ✅ · 1 ✅ · 2 ✅ · 3 ✅ · 8 ✅ (pendiente de credenciales) · 4 ✅ · siguiente: PHASE 5 (XGBoost).**
 
 **Orden de fases revisado (2026-09-18):** el collector de Betfair (PHASE 8) se adelanta a
 continuación de PHASE 3. Cada semana sin recolectar es muestra perdida que no se recupera,
@@ -248,11 +248,18 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
   tomadas del propio partido darían AUC 0,9171 — la diferencia mide el tamaño de la trampa
   evitada. Todas las features con media ≈ 0 (antisimetría confirmada). Ver `docs/MODELS.md`.
 
-### PHASE 4 — Logistic Regression baseline
+### PHASE 4 — Logistic Regression baseline ✅
 - Pipeline sklearn (imputación + escalado + LogReg), entrenado solo con TRAIN.
 - **Tests:** `test_probability_sum` (P(A)+P(B)=1), `test_model_versioning` (manifiesto + hash).
 - **Aceptación:** Brier/LogLoss/AUC/calibration error frente a Elo en VALIDATION.
   Si no mejora a Elo, se reporta como tal — no se fuerza.
+- **Resultado:** supera al Elo en los dos conjuntos. Brier skill vs Elo **+4,71 % (VAL)** y
+  **+3,60 % (TEST)**; AUC 0,715 vs 0,699 en TEST.
+- **Hallazgo clave:** el **ECE cae de 0,053 a 0,0135** en TEST, cuatro veces mejor. El patrón
+  monótono de sobreconfianza del Elo desaparece, lo que mitiga directamente el riesgo R13.
+- **Salvedad:** parte de la mejora viene de que el modelo es más conservador (0,8 % de
+  predicciones en [0,9–1,0) frente al 2,6 % del Elo), así que cabe esperar **menos**
+  oportunidades de value, no más. Detalle en `docs/MODELS.md`.
 
 ### PHASE 5 — XGBoost
 - Mismo contrato de entrada/salida que LogReg (intercambiables).
