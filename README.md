@@ -3,9 +3,9 @@
 Sistema ligero, modular y autónomo de **investigación cuantitativa** sobre mercados de tenis
 de Betfair Exchange.
 
-> **Estado actual: PHASE 8 completada.** Dataset histórico (113.544 partidos ATP, 1990–2026),
-> benchmark Elo (+11,3 % de Brier skill sobre TEST), 21 features sin leakage y collector de
-> Betfair de solo lectura, listo a falta de credenciales.
+> **Estado actual: PHASES 0–4 y 8 completadas.** Dataset histórico (113.544 partidos ATP),
+> benchmark Elo, regresión logística (+3,6 % de Brier skill sobre TEST), 21 features sin
+> leakage y collector de Betfair operativo escribiendo en PostgreSQL.
 > Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ---
@@ -108,7 +108,11 @@ uv run edgecourt elo build       # calcular Elo global y por superficie
 uv run edgecourt elo evaluate    # benchmark Elo con calibracion por buckets
 uv run edgecourt features build  # generar la tabla de features
 uv run edgecourt collector start # recoger cuotas de Betfair (solo lectura)
-uv run edgecourt collector status # cobertura de snapshots
+uv run edgecourt collector status # cobertura de observaciones (desde PostgreSQL)
+uv run edgecourt db migrate      # aplicar migraciones
+uv run edgecourt db status       # estado del esquema operativo
+uv run edgecourt db liquidity    # curva de aparicion de liquidez
+uv run edgecourt db export-parquet # exportar observaciones a Parquet
 uv run edgecourt train           # PHASE 4-5
 uv run edgecourt backtest        # PHASE 7
 uv run edgecourt collector start # PHASE 8

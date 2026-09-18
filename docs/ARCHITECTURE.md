@@ -74,7 +74,29 @@ match_facts (Parquet inmutable)
 
 ## Decisiones tomadas
 
-### Parquet canónico + DuckDB como motor (no como estado)
+### D2 revisada (2026-09-18): PostgreSQL operativo + Parquet analítico
+
+El diseño original usaba Parquet como almacén canónico de todo. Al pasar el collector a
+operación 24/7 esa elección dejó de servir: escrituras pequeñas y concurrentes, idempotencia y
+lecturas de estado (¿qué mercados ya observé? ¿cuáles mostraron liquidez?) son justo lo que un
+fichero columnar hace mal.
+
+Reparto actual:
+
+| | PostgreSQL | Parquet |
+|---|---|---|
+| **Rol** | estado operativo 24/7 | analítico e histórico |
+| **Fuente de verdad de** | Betfair en vivo, predicciones, paper bets | dataset histórico de tenis |
+| **Patrón** | escrituras pequeñas, concurrentes, idempotentes | lotes, inmutable |
+
+**Nada se escribe dos veces.** El collector escribe solo en PostgreSQL; los Parquet de Betfair
+se generan por exportación (`edgecourt db export-parquet`). Una doble escritura simultánea
+acabaría divergiendo sin que nadie supiera cuál es la buena.
+
+El pipeline histórico (`matches`, `elo`, `features`) **no cambia**: 113.544 partidos inmutables
+no ganan nada en una base de datos operativa.
+
+### Parquet canónico + DuckDB como motor (histórico de ML)
 
 DuckDB se abre en memoria y lee los Parquet. No hay fichero `.db` que sea fuente de verdad.
 Consecuencias: un dataset se reproduce copiando ficheros; el consumo de RAM queda acotado

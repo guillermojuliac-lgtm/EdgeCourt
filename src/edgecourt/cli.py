@@ -221,14 +221,16 @@ def _cmd_features_build(settings: Settings, _args: argparse.Namespace) -> int:
 
 def _cmd_collector_start(settings: Settings, args: argparse.Namespace) -> int:
     """Arranca el collector de cuotas. Solo lectura, sin capacidad de apostar."""
+    from edgecourt.db.connection import dsn_from_env, redact_dsn
     from edgecourt.market.auth import MissingCredentialsError
     from edgecourt.market.collector import Collector
 
-    print("EdgeCourt collector — SOLO LECTURA")
-    print(f"  modo          : {settings.betting_mode.upper()}")
+    print("EdgeCourt collector — Betfair SOLO LECTURA")
+    print(f"  modo           : {settings.betting_mode.upper()}")
     print(f"  apuestas reales: {'HABILITADAS' if REAL_BETTING_ENABLED else 'NO IMPLEMENTADAS'}")
-    print(f"  intervalo     : {settings.collector_interval_seconds:.0f}s")
-    print(f"  destino       : {settings.odds_dir}")
+    print(f"  intervalo      : {settings.collector_interval_seconds:.0f}s")
+    print(f"  destino        : {redact_dsn(dsn_from_env(settings))}")
+    print("  Parquet es formato de exportacion: 'edgecourt db export-parquet'")
     print()
 
     collector = Collector(settings)
@@ -239,28 +241,84 @@ def _cmd_collector_start(settings: Settings, args: argparse.Namespace) -> int:
         print(f"No se puede arrancar: {exc}", file=sys.stderr)
         print("Consulta la seccion 'Betfair' del README para configurarlas.", file=sys.stderr)
         return 5
-    print(f"Detenido tras {cycles} ciclo(s).")
+    print(f"Detenido tras {cycles} ciclo(s). run_id: {collector.run_id}")
     return 0
 
 
 def _cmd_collector_status(settings: Settings, _args: argparse.Namespace) -> int:
-    """Muestra la cobertura de snapshots recogidos hasta ahora."""
-    from edgecourt.market.snapshots import coverage_report
+    """Cobertura de observaciones recogidas, leida de PostgreSQL."""
+    from edgecourt.db.repositories import snapshot_coverage
 
-    report = coverage_report(settings.odds_dir)
-    if report.empty:
-        print("Todavia no hay snapshots recogidos.")
+    with _db_connection(settings) as connection, connection.cursor() as cursor:
+        rows = snapshot_coverage(cursor)
+
+    if not rows:
+        print("Todavia no hay observaciones recogidas.")
         return 0
 
-    print("Cobertura de snapshots")
-    print(f"  {'hito':<10}{'mercados':>10}{'filas':>10}")
-    print("  " + "-" * 30)
-    for row in report.to_dict(orient="records"):
-        print(f"  {row['snapshot_label']:<10}{row['markets']:>10,}{row['rows']:>10,}")
+    print("Cobertura de observaciones (fuente: PostgreSQL)")
+    header = f"  {'hito':<10}{'obs':>8}{'mercados':>10}{'c/precios':>11}{'c/liquidez':>12}"
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    total = con_precios = 0
+    for row in rows:
+        print(
+            f"  {row['snapshot_label']:<10}{row['observaciones']:>8,}{row['mercados']:>10,}"
+            f"{row['con_precios']:>11,}{row['con_liquidez']:>12,}"
+        )
+        total += row["observaciones"]
+        con_precios += row["con_precios"]
     print()
-    print("Los huecos son esperables: un proceso 24/7 sufre caidas y hay mercados")
-    print("que se crean tarde. Nunca se rellena un hito perdido a posteriori.")
+    print(
+        f"  Total: {total:,} observaciones, {con_precios:,} con precios "
+        f"({100 * con_precios / total:.1f}%)"
+    )
+    print()
+    print("Una observacion sin precios NO es un fallo: es un mercado abierto sin")
+    print("libro todavia, y es el dato que permite medir cuando aparece la liquidez.")
+    print("Los hitos perdidos nunca se rellenan a posteriori.")
     return 0
+
+
+def _cmd_db_export_parquet(settings: Settings, args: argparse.Namespace) -> int:
+    """Exporta observaciones de PostgreSQL a Parquet. No borra nada."""
+    from datetime import date, timedelta
+
+    from edgecourt.db.export_parquet import export_range, verify_export
+
+    end = date.fromisoformat(args.to_date) if args.to_date else date.today() + timedelta(days=1)
+    start = date.fromisoformat(args.from_date) if args.from_date else date(2000, 1, 1)
+
+    print("Exportacion PostgreSQL -> Parquet")
+    print(f"  rango  : [{start}, {end})")
+    print(f"  destino: {settings.odds_dir}")
+    print("  La exportacion NO elimina nada de PostgreSQL.")
+    print()
+
+    with _db_connection(settings) as connection:
+        result = export_range(connection, settings.odds_dir, start=start, end=end)
+        if result.rows == 0:
+            print("  No hay observaciones en ese rango.")
+            return 0
+
+        print(f"  filas escritas        : {result.rows:,}")
+        print(f"  observaciones         : {result.observations:,}")
+        print(f"    con precios         : {result.with_prices:,}")
+        print(f"    sin precios         : {result.without_prices:,}")
+        print(f"  ficheros              : {len(result.files)}")
+        print(f"  bytes                 : {result.bytes_written:,}")
+        print(f"  sha256                : {result.sha256[:16]}...")
+        print()
+
+        check = verify_export(connection, settings.odds_dir, start=start, end=end)
+        print("Verificacion:")
+        print(f"  observaciones en la BD    : {check['observations_in_db']:,}")
+        print(f"  observaciones en el fichero: {check['observations_in_file']:,}")
+        if check["ok"]:
+            print("  RESULTADO: la exportacion esta completa")
+            return 0
+        print("  RESULTADO: la exportacion NO cuadra", file=sys.stderr)
+        return 4
 
 
 def _cmd_train(settings: Settings, args: argparse.Namespace) -> int:
@@ -585,6 +643,9 @@ def build_parser() -> argparse.ArgumentParser:
     db_sub.add_parser("status", help="version de esquema y recuento de filas")
     db_sub.add_parser("import-parquet", help="migrar snapshots Parquet a PostgreSQL")
     db_sub.add_parser("liquidity", help="curva de aparicion de liquidez")
+    exp = db_sub.add_parser("export-parquet", help="exportar observaciones a Parquet")
+    exp.add_argument("--from-date", dest="from_date", default=None, help="AAAA-MM-DD inclusive")
+    exp.add_argument("--to-date", dest="to_date", default=None, help="AAAA-MM-DD exclusivo")
 
     betfair = sub.add_parser("betfair", help="utilidades de la capa Betfair (solo lectura)")
     betfair_sub = betfair.add_subparsers(dest="subcommand", required=True)
@@ -681,6 +742,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "db status": _cmd_db_status,
         "db import-parquet": _cmd_db_import_parquet,
         "db liquidity": _cmd_db_liquidity,
+        "db export-parquet": _cmd_db_export_parquet,
         "betfair check": _cmd_betfair_check,
         "collector start": _cmd_collector_start,
         "collector status": _cmd_collector_status,
