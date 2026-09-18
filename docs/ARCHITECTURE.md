@@ -64,7 +64,7 @@ match_facts (Parquet inmutable)
 | `features/` | Elo y feature engineering sin leakage | 2–3 |
 | `models/` | LogReg, XGBoost, versionado | 4–5 |
 | `calibration/` | Platt / isotónica, curvas, ECE | 6 |
-| `market/` | Betfair solo lectura, probabilidad de mercado | 8, 12 |
+| `market/` | Betfair solo lectura, snapshots, collector 24/7 | 8 ✅ |
 | `value/` | edge y valor esperado | 9 |
 | `risk/` | filtros, staking, límites duros | 10 |
 | `paper/` | ledger inmutable y liquidación | 11 |
@@ -104,10 +104,20 @@ crítica, ninguna funcionalidad perdida.
 El sistema trae 3.14, para el que las wheels de XGBoost/scikit-learn pueden no estar maduras.
 `uv` fija un 3.13 propio del proyecto sin tocar el Python del sistema.
 
+### D7 resuelta (PHASE 8): `httpx` directo, no `betfairlightweight`
+
+El motivo decisivo no es el peso de la dependencia sino la **seguridad**. `betfairlightweight`
+agrupa la colocación y cancelación de órdenes en el mismo objeto cliente que las consultas: la
+capacidad de mover dinero real quedaría a un `import` de distancia dentro del proceso, aunque
+nunca se llamase. Escribiendo las tres llamadas de lectura que necesitamos, ese código no
+existe, y su ausencia es verificable automáticamente.
+
+Coste asumido: mantener a mano el manejo de reintentos, lotes y errores de la API. Son ~250
+líneas, cubiertas por tests, a cambio de que la garantía central del proyecto sea comprobable
+en lugar de prometida.
+
 ## Decisiones pendientes
 
-- **`betfairlightweight` vs `httpx` directo** (PHASE 8): depende de si usamos login por
-  certificado, requerido para operación 24/7 no interactiva. Se documentará aquí al decidirse.
 - **Uno o dos procesos de larga duración** (PHASE 15): se empieza con uno; se separa solo si
   aparece una razón concreta (cadencias incompatibles o aislamiento de fallos).
 

@@ -28,7 +28,6 @@ from edgecourt.storage import dataset_summary
 PENDING: dict[str, tuple[str, str]] = {
     "train": ("PHASE 4-5", "Entrenar un modelo challenger"),
     "backtest": ("PHASE 7", "Validacion temporal walk-forward"),
-    "collector start": ("PHASE 8", "Recoger snapshots de cuotas de Betfair (solo lectura)"),
     "predict": ("PHASE 9", "Generar predicciones y evaluar value"),
     "paper status": ("PHASE 11", "Estado del ledger de paper betting"),
     "metrics": ("PHASE 12", "Calcular metricas: Brier, CLV, ROI, drawdown"),
@@ -222,6 +221,50 @@ def _cmd_features_build(settings: Settings, _args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_collector_start(settings: Settings, args: argparse.Namespace) -> int:
+    """Arranca el collector de cuotas. Solo lectura, sin capacidad de apostar."""
+    from edgecourt.market.auth import MissingCredentialsError
+    from edgecourt.market.collector import Collector
+
+    print("EdgeCourt collector — SOLO LECTURA")
+    print(f"  modo          : {settings.betting_mode.upper()}")
+    print(f"  apuestas reales: {'HABILITADAS' if REAL_BETTING_ENABLED else 'NO IMPLEMENTADAS'}")
+    print(f"  intervalo     : {settings.collector_interval_seconds:.0f}s")
+    print(f"  destino       : {settings.odds_dir}")
+    print()
+
+    collector = Collector(settings)
+    collector.install_signal_handlers()
+    try:
+        cycles = collector.run(max_cycles=args.max_cycles)
+    except MissingCredentialsError as exc:
+        print(f"No se puede arrancar: {exc}", file=sys.stderr)
+        print("Consulta la seccion 'Betfair' del README para configurarlas.", file=sys.stderr)
+        return 5
+    print(f"Detenido tras {cycles} ciclo(s).")
+    return 0
+
+
+def _cmd_collector_status(settings: Settings, _args: argparse.Namespace) -> int:
+    """Muestra la cobertura de snapshots recogidos hasta ahora."""
+    from edgecourt.market.snapshots import coverage_report
+
+    report = coverage_report(settings.odds_dir)
+    if report.empty:
+        print("Todavia no hay snapshots recogidos.")
+        return 0
+
+    print("Cobertura de snapshots")
+    print(f"  {'hito':<10}{'mercados':>10}{'filas':>10}")
+    print("  " + "-" * 30)
+    for row in report.to_dict(orient="records"):
+        print(f"  {row['snapshot_label']:<10}{row['markets']:>10,}{row['rows']:>10,}")
+    print()
+    print("Los huecos son esperables: un proceso 24/7 sufre caidas y hay mercados")
+    print("que se crean tarde. Nunca se rellena un hito perdido a posteriori.")
+    return 0
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -262,6 +305,18 @@ def build_parser() -> argparse.ArgumentParser:
     check = data_sub.add_parser("check", help="contrastar con la fuente de referencia")
     check.add_argument("--from-year", type=int, default=2000, dest="from_year")
     check.add_argument("--to-year", type=int, default=None, dest="to_year")
+
+    collector = sub.add_parser("collector", help="collector de cuotas de Betfair (solo lectura)")
+    collector_sub = collector.add_subparsers(dest="subcommand", required=True)
+    start = collector_sub.add_parser("start", help="arrancar el collector")
+    start.add_argument(
+        "--max-cycles",
+        type=int,
+        default=None,
+        dest="max_cycles",
+        help="terminar tras N ciclos (por defecto corre hasta recibir SIGTERM)",
+    )
+    collector_sub.add_parser("status", help="cobertura de snapshots recogidos")
 
     feats = sub.add_parser("features", help="generacion de features")
     feats_sub = feats.add_subparsers(dest="subcommand", required=True)
@@ -318,6 +373,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data fetch": _cmd_data_fetch,
         "data import": _cmd_data_import,
         "data check": _cmd_data_check,
+        "collector start": _cmd_collector_start,
+        "collector status": _cmd_collector_status,
         "features build": _cmd_features_build,
         "elo build": _cmd_elo_build,
         "elo evaluate": _cmd_elo_evaluate,

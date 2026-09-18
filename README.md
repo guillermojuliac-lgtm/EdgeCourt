@@ -3,9 +3,10 @@
 Sistema ligero, modular y autónomo de **investigación cuantitativa** sobre mercados de tenis
 de Betfair Exchange.
 
-> **Estado actual: PHASE 3 completada.** Dataset histórico (113.544 partidos ATP, 1990–2026),
-> benchmark Elo (+11,3 % de Brier skill sobre TEST) y 21 features sin leakage temporal.
-> Siguiente: collector de Betfair. Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+> **Estado actual: PHASE 8 completada.** Dataset histórico (113.544 partidos ATP, 1990–2026),
+> benchmark Elo (+11,3 % de Brier skill sobre TEST), 21 features sin leakage y collector de
+> Betfair de solo lectura, listo a falta de credenciales.
+> Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -106,6 +107,8 @@ uv run edgecourt data check      # contrastar con la fuente de referencia
 uv run edgecourt elo build       # calcular Elo global y por superficie
 uv run edgecourt elo evaluate    # benchmark Elo con calibracion por buckets
 uv run edgecourt features build  # generar la tabla de features
+uv run edgecourt collector start # recoger cuotas de Betfair (solo lectura)
+uv run edgecourt collector status # cobertura de snapshots
 uv run edgecourt train           # PHASE 4-5
 uv run edgecourt backtest        # PHASE 7
 uv run edgecourt collector start # PHASE 8
@@ -148,14 +151,134 @@ registrada es *detectable*, no solo desaconsejada. La liquidación nunca reescri
 
 ## Betfair
 
-Capa aislada y **de solo lectura**: autenticación, eventos, mercados, back/lay, liquidez y
-timestamps. Se guardan snapshots a 24h/12h/6h/1h/10m/cierre en la medida en que estén
-disponibles, registrando siempre el timestamp real de observación.
+Capa **de solo lectura por construcción**. EdgeCourt consulta eventos, mercados, precios back y
+lay, liquidez y timestamps. No existe ninguna función capaz de enviar, modificar o cancelar una
+apuesta, y tres tests lo verifican de forma automática:
+
+- `test_source_contains_no_order_placement_calls` — escanea el árbol buscando endpoints de ejecución.
+- `test_no_trading_library_is_imported` / `test_trading_libraries_are_not_installed` — impiden
+  que entre una librería que traiga esa capacidad consigo.
+- `test_market_package_exposes_no_write_operations` — el cliente solo puede exponer
+  `list_events`, `list_market_catalogue` y `list_market_book`.
+
+Por eso se usa `httpx` directo y **no** `betfairlightweight`: esa librería agrupa la colocación
+de órdenes en el mismo objeto cliente que las consultas, lo que dejaría la capacidad de apostar
+a un `import` de distancia. Escribiendo las tres llamadas que necesitamos, ese código no existe.
+
+### Snapshots
+
+Se apunta a capturar cada mercado a **24 h, 12 h, 6 h, 1 h, 10 min y cierre** antes del
+inicio, con ventanas de tolerancia que se estrechan al acercarse (±45 min a 24 h, ±3 min a
+10 min). Se guardan tres niveles de profundidad de back y lay, liquidez, estado del mercado y
+retardo de apuesta.
+
+Tres reglas que determinan la calidad del dato:
+
+1. **Se registra el timestamp real de observación**, nunca el planificado. Cada fila lleva
+   `observed_at`, `snapshot_label` (el hito al que apuntaba) y `minutes_to_start` (la distancia
+   real). El análisis debe usar `minutes_to_start`.
+2. **Un hito perdido no se rellena a posteriori.** Si el proceso estuvo caído, ese snapshot se
+   queda vacío. Un "snapshot de 24 h" tomado a 3 h del inicio sería un dato falso.
+3. **Deduplicación por `market_id:selection_id:label`.** Un reintento sustituye la captura, no
+   la duplica.
+
+`edgecourt collector status` muestra la cobertura por hito, huecos incluidos.
+
+### Obtener las credenciales
+
+Cuatro pasos. **Ningún secreto se escribe nunca en el código ni se comparte por chat.**
+
+#### 1. Cuenta y verificación
+
+Necesitas una cuenta de Betfair verificada según su política KYC.
+
+#### 2. Application Key
+
+Se obtiene con la operación `createDeveloperAppKeys` desde la *Accounts API Demo Tool* del
+[portal de desarrolladores](https://developer.betfair.com/):
+
+1. Inicia sesión en Betfair en otra pestaña.
+2. Abre la herramienta de demo de la Accounts API y elige `createDeveloperAppKeys`.
+3. Refresca para que se rellene tu token de sesión.
+4. Introduce un nombre de aplicación único a nivel global (p. ej. `edgecourt-<algo-tuyo>`).
+5. Ejecuta.
+
+Se generan **dos** claves:
+
+| Clave | Estado | Datos | Coste |
+|---|---|---|---|
+| **Delayed** | activa | retrasados | gratis |
+| **Live** | inactiva | tiempo real | **tasa única de activación de £499** |
+
+> **Empieza con la Delayed Key.** Para los hitos lejanos (24 h, 12 h, 6 h) el retraso es
+> irrelevante: el precio no se mueve de forma apreciable en segundos cuando faltan horas. Te
+> permite validar el collector entero, acumular muestra y comprobar que el pipeline funciona
+> sin gastar nada.
+>
+> La Live Key solo se justifica cuando la investigación demuestre que hace falta precisión en
+> los hitos cercanos. Ten en cuenta que **el CLV medido con datos retrasados es menos fiable**,
+> porque el precio de cierre es justo el que más se mueve: trátalo como orientativo hasta
+> tener datos en vivo.
+
+Verifica el importe y las condiciones en el portal antes de decidir: pueden haber cambiado.
+
+#### 3. Certificado autofirmado (login no interactivo)
+
+Imprescindible para 24/7: sin él la sesión caduca y el proceso no puede renovarse solo.
+Betfair exige **RSA de 2048 bits**.
+
+```bash
+mkdir -p ~/.config/edgecourt/betfair && cd ~/.config/edgecourt/betfair
+
+openssl genrsa -out client-2048.key 2048
+openssl req -new -key client-2048.key -out client-2048.csr
+openssl x509 -req -days 3650 -in client-2048.csr -signkey client-2048.key -out client-2048.crt
+
+chmod 600 client-2048.key client-2048.crt
+```
+
+En el `openssl req` puedes dejar todos los campos en blanco salvo *Common Name*, donde conviene
+poner algo identificable. **No pongas contraseña a la clave**: un proceso desatendido no puede
+teclearla al arrancar.
+
+Después, súbelo a tu cuenta:
+
+1. Ve a `https://myaccount.betfair.com/accountdetails/mysecurity?showAPI=1`
+   (`.es`, `.com.au` o `.it` según tu jurisdicción).
+2. Busca la sección **"Automated Betting Program Access"** y pulsa **Edit**.
+3. Sube **`client-2048.crt`** — el `.crt`, **no** el `.csr`.
+4. Pulsa **Upload Certificate**.
+
+#### 4. Configurar EdgeCourt
+
+```bash
+cp .env.example .env
+```
+
+Rellena en `.env`: `BETFAIR_USERNAME`, `BETFAIR_PASSWORD`, `BETFAIR_APP_KEY`,
+`BETFAIR_CERT_PATH` y `BETFAIR_KEY_PATH` (rutas absolutas). El `.env` está en `.gitignore` y
+los certificados viven fuera del repositorio.
+
+Comprueba con un único ciclo:
+
+```bash
+uv run edgecourt collector start --max-cycles 1
+```
+
+Si falta alguna variable, sale con código **5** y dice exactamente cuál. Cuando funcione:
+
+```bash
+uv run edgecourt collector start     # corre hasta recibir SIGTERM
+uv run edgecourt collector status    # cobertura de snapshots
+```
 
 ## systemd
 
-Se proporcionarán unidades de ejemplo en `deploy/`. **No se instalan automáticamente**: se
-muestran primero para que sean revisadas.
+Unidades de ejemplo en [`deploy/`](deploy/). **No se instalan automáticamente**: se muestran
+primero para que sean revisadas. `edgecourt-collector.service` incluye apagado limpio por
+SIGTERM, límite de reinicios para que un fallo de credenciales no entre en bucle, y
+endurecimiento (`ProtectSystem=strict`, `NoNewPrivileges`, sin acceso de escritura fuera de
+`data/` y `logs/`).
 
 ## Telegram
 

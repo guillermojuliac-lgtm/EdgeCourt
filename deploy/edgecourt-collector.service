@@ -1,0 +1,66 @@
+# EdgeCourt - collector de cuotas de Betfair (SOLO LECTURA)
+#
+# ESTE FICHERO ES UN EJEMPLO. No se instala automaticamente.
+# Revisalo entero, ajusta las rutas y el usuario, y solo entonces:
+#
+#   sudo cp deploy/edgecourt-collector.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now edgecourt-collector
+#
+# Comprobar:   systemctl status edgecourt-collector
+# Ver logs:    journalctl -u edgecourt-collector -f
+
+[Unit]
+Description=EdgeCourt Betfair odds collector (read-only)
+Documentation=file:///opt/edgecourt/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=edgecourt
+Group=edgecourt
+WorkingDirectory=/opt/edgecourt
+
+# Las credenciales viven en un fichero aparte, con permisos 600 y propiedad del
+# usuario del servicio. Nunca en esta unidad, que es legible por cualquiera.
+EnvironmentFile=/etc/edgecourt/edgecourt.env
+
+ExecStart=/opt/edgecourt/.venv/bin/edgecourt collector start
+
+# Apagado ordenado: el collector convierte SIGTERM en una parada limpia que
+# cierra la sesion en Betfair antes de salir.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Reinicio ante fallos temporales, pero sin bucle infinito: si falla 5 veces en
+# 5 minutos, systemd se rinde. Un fallo de credenciales aborta de inmediato, y
+# ese limite evita que se reintente para siempre sin que nadie se entere.
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Endurecimiento. El servicio solo necesita leer su codigo y escribir sus datos.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/opt/edgecourt/data /opt/edgecourt/logs
+
+# Limite de memoria: el collector no deberia acercarse, y si lo hace es un fallo.
+MemoryMax=1G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=edgecourt-collector
+
+[Install]
+WantedBy=multi-user.target

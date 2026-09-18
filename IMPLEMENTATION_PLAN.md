@@ -3,7 +3,7 @@
 Documento vivo. Cada fase es pequeña, verificable y tiene criterio de aceptación explícito.
 No se avanza de fase si los tests críticos de esa fase fallan.
 
-**Estado: PHASE 0 ✅ · PHASE 1 ✅ · PHASE 2 ✅ · PHASE 3 ✅ · siguiente: PHASE 8 (collector Betfair).**
+**Estado: PHASE 0 ✅ · PHASE 1 ✅ · PHASE 2 ✅ · PHASE 3 ✅ · PHASE 8 ✅ (pendiente de credenciales) · siguiente: PHASE 8b o PHASE 4.**
 
 **Orden de fases revisado (2026-09-18):** el collector de Betfair (PHASE 8) se adelanta a
 continuación de PHASE 3. Cada semana sin recolectar es muestra perdida que no se recupera,
@@ -272,7 +272,7 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
 - **Tests:** `test_walkforward_windows_disjoint`, `test_no_train_after_eval_date`.
 - **Aceptación:** estabilidad año a año del Brier skill score frente a Elo.
 
-### PHASE 8 — Betfair market data (solo lectura) + collector ⏩ *(adelantada: va tras PHASE 3)*
+### PHASE 8 — Betfair market data (solo lectura) + collector ✅ *(adelantada: fue tras PHASE 3)*
 - Autenticación (cert o interactiva, decisión D7), listado de eventos/mercados de tenis,
   back/lay/liquidez/timestamp, snapshots a 24h/12h/6h/1h/10m/cierre (best-effort).
 - Snapshots en Parquet particionado por fecha; timestamp real de observación, nunca el teórico.
@@ -281,6 +281,12 @@ Formato: **Entregable** → **Tests** → **Criterio de aceptación**.
   no esté listo. El tiempo es el recurso escaso.
 - **Tests:** `test_snapshot_schema`, `test_backoff_policy`, `test_no_order_endpoints` (R10),
   `test_graceful_shutdown`.
+- **Resultado:** collector completo y probado (80 tests nuevos). **Sin credenciales todavía**,
+  así que no ha recolectado aún. La barrera de seguridad se amplió: además de escanear el
+  árbol, ahora se prohíbe importar o tener instalada cualquier librería con capacidad de
+  ejecución (D7 resuelta a favor de `httpx` directo).
+- **Hallazgo de coste:** la Application Key *live* de Betfair tiene una tasa única de £499;
+  la *delayed* es gratuita y basta para los hitos lejanos (24h/12h/6h). Ver README.
 
 ### PHASE 8b — Emparejamiento de entidades (R5)
 - Tabla de mapeo persistente jugador/torneo entre fuente histórica y Betfair.

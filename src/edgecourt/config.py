@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     kelly_fraction: float = Field(default=0.25, gt=0, le=0.25)
     betfair_commission: float = Field(default=0.05, ge=0.0, lt=1.0)
 
+    # --- Collector de Betfair (solo lectura, PHASE 8) ----------------------
+    collector_interval_seconds: float = Field(default=60.0, ge=10.0, le=3600.0)
+
     # --- Telegram (opcional, PHASE 15) -------------------------------------
     telegram_enabled: bool = False
     telegram_bot_token: str = ""
