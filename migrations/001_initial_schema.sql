@@ -8,8 +8,10 @@
 -- Distincion central: "mercado observado" y "snapshot con precios" son cosas
 -- distintas y se modelan en tablas distintas. Un mercado OPEN con runners ACTIVE
 -- y sin BACK/LAY es informacion valida, no una fila a medias.
+-- Transaccionalidad: la gestiona el runner de migraciones. NO incluir
+-- BEGIN/COMMIT aqui: cerrarian la transaccion externa y el registro en
+-- schema_migration quedaria fuera de ella.
 
-BEGIN;
 
 -- ---------------------------------------------------------------------------
 -- Catalogo: cambia poco y se conserva siempre.
@@ -273,5 +275,3 @@ CREATE TABLE match_result (
 COMMENT ON COLUMN match_result.void_reason IS
     'Betfair anula mercados por retirada. Una apuesta anulada es void, no perdida: '
     'contarla como perdida sesgaria el ROI a la baja, e ignorarla al alza.';
-
-COMMIT;

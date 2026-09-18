@@ -332,3 +332,23 @@ def test_market_states_feed_the_cadence(db):
     assert states["1.001"].has_shown_liquidity is True
     assert states["1.001"].is_active is True
     assert "6h" in states["1.001"].captured_labels
+
+
+@pytest.mark.critical
+def test_connection_string_never_appears_in_test_output():
+    """La DSN no puede exponerse al imprimirse: contiene la contrasena.
+
+    Regresion: la fixture recibia la DSN como argumento y pytest imprime los
+    argumentos de las fixtures en los tracebacks, con lo que la contrasena
+    acababa en claro en la salida de los tests.
+    """
+    from tests.conftest_db import SafeDsn
+
+    secret = "postgresql://usuario:contrasena-muy-secreta@127.0.0.1:5433/edgecourt_test"
+    safe = SafeDsn(secret)
+
+    assert "contrasena-muy-secreta" not in repr(safe)
+    assert "contrasena-muy-secreta" not in f"{safe!r}"
+    assert "***" in repr(safe)
+    # El valor real sigue siendo accesible para conectarse.
+    assert safe.value == secret

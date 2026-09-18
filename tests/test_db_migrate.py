@@ -183,3 +183,29 @@ def test_redact_dsn_hides_the_password():
 
 def test_redact_dsn_handles_socket_urls():
     assert redact_dsn("postgresql:///edgecourt") == "postgresql:///edgecourt"
+
+
+@pytest.mark.critical
+def test_migrations_must_not_control_transactions(tmp_path):
+    """Una migracion con COMMIT propio rompe la atomicidad del runner.
+
+    Regresion: los ficheros incluian BEGIN/COMMIT, y ese COMMIT cerraba la
+    transaccion que abre el runner, invalidando el savepoint de psycopg y
+    dejando el registro en schema_migration fuera de la operacion atomica.
+    """
+    (tmp_path / "001_mala.sql").write_text("BEGIN;\nCREATE TABLE x (i int);\nCOMMIT;\n")
+    with pytest.raises(ValueError, match="control de transaccion"):
+        discover(tmp_path)
+
+
+@pytest.mark.critical
+def test_shipped_migrations_have_no_transaction_control():
+    for migration in discover():
+        assert "BEGIN;" not in migration.sql, migration.name
+        assert "COMMIT;" not in migration.sql, migration.name
+
+
+def test_rollback_is_also_rejected(tmp_path):
+    (tmp_path / "001_mala.sql").write_text("CREATE TABLE x (i int);\nROLLBACK;\n")
+    with pytest.raises(ValueError, match="ROLLBACK"):
+        discover(tmp_path)

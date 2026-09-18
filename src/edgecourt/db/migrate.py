@@ -36,6 +36,26 @@ CREATE TABLE IF NOT EXISTS schema_migration (
 """
 
 
+_TRANSACTION_CONTROL = re.compile(r"^\s*(BEGIN|COMMIT|ROLLBACK)\s*;", re.IGNORECASE | re.MULTILINE)
+
+
+def _reject_transaction_control(filename: str, sql: str) -> None:
+    """Las migraciones no pueden abrir ni cerrar transacciones por su cuenta.
+
+    El runner envuelve cada migracion en una transaccion junto con su registro en
+    `schema_migration`, para que ambas cosas ocurran o no ocurra ninguna. Un
+    `COMMIT` dentro del fichero cierra esa transaccion externa, invalida el
+    savepoint de psycopg y deja el registro fuera de la operacion atomica.
+    """
+    found = _TRANSACTION_CONTROL.findall(sql)
+    if found:
+        raise ValueError(
+            f"La migracion {filename} contiene control de transaccion "
+            f"({', '.join(sorted(set(f.upper() for f in found)))}). "
+            "La transaccionalidad la gestiona el runner: elimina BEGIN/COMMIT/ROLLBACK."
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class Migration:
     version: int
@@ -70,14 +90,9 @@ def discover(directory: Path = MIGRATIONS_DIR) -> list[Migration]:
                 f"Version de migracion duplicada {version}: {seen[version]} y {path.name}"
             )
         seen[version] = path.name
-        migrations.append(
-            Migration(
-                version=version,
-                name=match.group(2),
-                path=path,
-                sql=path.read_text(encoding="utf-8"),
-            )
-        )
+        sql = path.read_text(encoding="utf-8")
+        _reject_transaction_control(path.name, sql)
+        migrations.append(Migration(version=version, name=match.group(2), path=path, sql=sql))
 
     return migrations
 
@@ -121,9 +136,12 @@ def apply(connection: psycopg.Connection, migration: Migration) -> None:
             "INSERT INTO schema_migration (version, name, checksum) VALUES (%s, %s, %s)",
             (migration.version, migration.name, migration.checksum),
         )
+    # OJO: 'name' es un atributo reservado de LogRecord. Pasarlo en `extra`
+    # provoca KeyError en cuanto el logging esta a nivel INFO, que es el valor
+    # por defecto de la aplicacion. Se usa 'migration_name'.
     log.info(
         "migracion aplicada",
-        extra={"version": migration.version, "name": migration.name},
+        extra={"version": migration.version, "migration_name": migration.name},
     )
 
 

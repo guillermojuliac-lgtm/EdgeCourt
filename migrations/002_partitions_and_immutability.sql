@@ -1,6 +1,8 @@
 -- EdgeCourt 002: particiones mensuales e inmutabilidad del ledger.
+-- Transaccionalidad: la gestiona el runner de migraciones. NO incluir
+-- BEGIN/COMMIT aqui: cerrarian la transaccion externa y el registro en
+-- schema_migration quedaria fuera de ella.
 
-BEGIN;
 
 -- ---------------------------------------------------------------------------
 -- Particiones mensuales.
@@ -97,5 +99,3 @@ SELECT
     round(avg(has_prices::int)::numeric, 4)    AS pct_con_precios
 FROM market_observation
 GROUP BY snapshot_label;
-
-COMMIT;

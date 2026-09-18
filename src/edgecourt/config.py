@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     # Vacio = PostgreSQL no configurado. El pipeline historico (Parquet) sigue
     # funcionando sin base de datos.
     database_url: str = ""
+    # Base de datos exclusiva para los tests de integracion. Debe ser distinta de
+    # la operativa: los tests borran y recrean el esquema en cada prueba.
+    edgecourt_test_dsn: str = ""
     # Dias que las observaciones y precios permanecen en PostgreSQL. Nunca se
     # purga nada sin una exportacion a Parquet verificada (tabla archive_run).
     retention_days: int = Field(default=90, ge=7, le=3650)
@@ -98,6 +101,20 @@ class Settings(BaseSettings):
         se lance la CLI o un servicio systemd.
         """
         return value if value.is_absolute() else (PROJECT_ROOT / value)
+
+    @model_validator(mode="after")
+    def _test_database_must_differ(self) -> Settings:
+        """La base de tests no puede ser la operativa.
+
+        Los tests de integracion hacen DROP SCHEMA en cada prueba. Apuntarlos a
+        la base operativa destruiria el historico recogido.
+        """
+        if self.edgecourt_test_dsn and self.edgecourt_test_dsn == self.database_url:
+            raise ValueError(
+                "EDGECOURT_TEST_DSN no puede coincidir con DATABASE_URL: "
+                "los tests recrean el esquema y borrarian los datos operativos"
+            )
+        return self
 
     @model_validator(mode="after")
     def _telegram_requires_credentials(self) -> Settings:

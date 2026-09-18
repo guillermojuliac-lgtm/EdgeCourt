@@ -4,8 +4,10 @@
 -- PostgreSQL sin que exista antes una exportacion a Parquet verificada.
 -- Esta tabla es el registro de esas verificaciones, y la funcion de purga se
 -- niega a actuar si no encuentra una.
+-- Transaccionalidad: la gestiona el runner de migraciones. NO incluir
+-- BEGIN/COMMIT aqui: cerrarian la transaccion externa y el registro en
+-- schema_migration quedaria fuera de ella.
 
-BEGIN;
 
 CREATE TABLE archive_run (
     archive_id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -67,5 +69,3 @@ $$;
 
 COMMENT ON FUNCTION assert_archived IS
     'Lanza excepcion si la particion no tiene exportacion verificada.';
-
-COMMIT;
