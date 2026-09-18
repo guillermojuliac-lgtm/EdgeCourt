@@ -31,6 +31,7 @@ import psycopg
 
 from edgecourt.config import Settings
 from edgecourt.db.connection import connect, dsn_from_env, transaction
+from edgecourt.db.locks import singleton
 from edgecourt.db.repositories import (
     ensure_partitions,
     load_market_states,
@@ -246,7 +247,12 @@ class Collector:
                 log.warning("no se pudo instalar el manejador", extra={"signal": sig})
 
     def run(self, *, max_cycles: int | None = None) -> int:
-        """Bucle principal. Devuelve el numero de ciclos ejecutados."""
+        """Bucle principal. Devuelve el numero de ciclos ejecutados.
+
+        Toma un bloqueo exclusivo mientras corre: dos collectors simultaneos no
+        corromperian nada -las escrituras son idempotentes- pero duplicarian el
+        consumo de cuota de la API de Betfair.
+        """
         interval = float(self._settings.collector_interval_seconds)
         cycles = 0
         log.info(
@@ -260,49 +266,57 @@ class Collector:
         )
 
         try:
-            while not self._stop.is_set():
-                if max_cycles is not None and cycles >= max_cycles:
-                    break
-
-                try:
-                    result = self.run_cycle()
-                    self._consecutive_failures = 0
-                    log.info(
-                        "ciclo completado",
-                        extra={
-                            "markets": result.markets_seen,
-                            "due": result.snapshots_due,
-                            "written": result.observations_written,
-                            "with_prices": result.with_prices,
-                            "without_prices": result.without_prices,
-                            "labels": result.labels,
-                        },
-                    )
-                except MissingCredentialsError:
-                    # Un fallo de configuracion no es temporal: reintentarlo cada
-                    # minuto durante horas solo esconde el problema en los logs.
-                    log.error("faltan credenciales de Betfair, abortando")
-                    raise
-                except Exception as exc:  # noqa: BLE001 - un ciclo no puede matar el proceso
-                    self._rollback()
-                    self._consecutive_failures += 1
-                    log.error(
-                        "ciclo fallido",
-                        extra={
-                            "error": str(exc),
-                            "consecutive_failures": self._consecutive_failures,
-                        },
-                        exc_info=True,
-                    )
-
-                cycles += 1
-                if max_cycles is not None and cycles >= max_cycles:
-                    break
-                self._stop.wait(self._wait_seconds(interval))
+            with singleton(self.connection()):
+                cycles = self._loop(max_cycles, interval)
         finally:
             self._sessions.close()
             self._close_connection()
             log.info("collector detenido", extra={"cycles": cycles})
+
+        return cycles
+
+    def _loop(self, max_cycles: int | None, interval: float) -> int:
+        """Itera hasta que se pida parar o se alcance `max_cycles`."""
+        cycles = 0
+        while not self._stop.is_set():
+            if max_cycles is not None and cycles >= max_cycles:
+                break
+
+            try:
+                result = self.run_cycle()
+                self._consecutive_failures = 0
+                log.info(
+                    "ciclo completado",
+                    extra={
+                        "markets": result.markets_seen,
+                        "due": result.snapshots_due,
+                        "written": result.observations_written,
+                        "with_prices": result.with_prices,
+                        "without_prices": result.without_prices,
+                        "labels": result.labels,
+                    },
+                )
+            except MissingCredentialsError:
+                # Un fallo de configuracion no es temporal: reintentarlo cada
+                # minuto durante horas solo esconde el problema en los logs.
+                log.error("faltan credenciales de Betfair, abortando")
+                raise
+            except Exception as exc:  # noqa: BLE001 - un ciclo no puede matar el proceso
+                self._rollback()
+                self._consecutive_failures += 1
+                log.error(
+                    "ciclo fallido",
+                    extra={
+                        "error": str(exc),
+                        "consecutive_failures": self._consecutive_failures,
+                    },
+                    exc_info=True,
+                )
+
+            cycles += 1
+            if max_cycles is not None and cycles >= max_cycles:
+                break
+            self._stop.wait(self._wait_seconds(interval))
 
         return cycles
 

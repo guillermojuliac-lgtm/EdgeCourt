@@ -62,7 +62,9 @@ class _FakeCursor:
         self._owner.statements.append(args[0] if args else "")
 
     def fetchone(self):
-        return {"observation_id": 1, "name": "x"}
+        # Cubre todas las consultas que hace el collector: el advisory lock,
+        # el id de observacion devuelto por el INSERT y la creacion de particiones.
+        return {"acquired": True, "observation_id": 1, "name": "x", "pid": 0}
 
     def fetchall(self):
         return []
@@ -81,7 +83,11 @@ class _FakeTransaction:
 
 
 class _FakeConnection:
-    """Conexion simulada: cuenta transacciones y sentencias."""
+    """Conexion simulada: cuenta transacciones y sentencias.
+
+    Responde al advisory lock concediendolo siempre; la exclusion real entre
+    procesos se comprueba en los tests de integracion.
+    """
 
     def __init__(self) -> None:
         self.statements: list[str] = []

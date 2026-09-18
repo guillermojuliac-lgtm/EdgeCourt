@@ -591,6 +591,51 @@ def _cmd_db_liquidity(settings: Settings, _args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_collector_health(settings: Settings, args: argparse.Namespace) -> int:
+    """Estado de salud del collector. Apto para supervision desatendida."""
+    from edgecourt.db.health import collect_health
+
+    with _db_connection(settings) as connection:
+        report = collect_health(connection, stale_after_minutes=args.stale_minutes)
+
+    def _edad(momento, minutos):
+        if momento is None:
+            return "nunca"
+        if minutos < 60:
+            return f"{momento:%Y-%m-%d %H:%M:%S} UTC  (hace {minutos:.0f} min)"
+        return f"{momento:%Y-%m-%d %H:%M:%S} UTC  (hace {minutos / 60:.1f} h)"
+
+    print("SALUD DEL COLLECTOR")
+    print(f"  estado                      : {'OK' if report.healthy else 'CON AVISOS'}")
+    print(
+        f"  ultima observacion          : "
+        f"{_edad(report.last_observation_at, report.minutes_since_last_observation or 0)}"
+    )
+    print(
+        f"  ultima observacion CON precios: "
+        f"{_edad(report.last_priced_observation_at, report.minutes_since_last_priced or 0)}"
+    )
+    print()
+    print(f"  observaciones totales       : {report.observations_total:,}")
+    print(f"  observaciones ultimas 24h   : {report.observations_24h:,}")
+    print(f"    de ellas con precios      : {report.priced_24h:,}")
+    print(f"  mercados en catalogo        : {report.markets_total:,}")
+    print(f"    proximos (sin empezar)    : {report.markets_upcoming:,}")
+    print(f"  ejecuciones distintas (24h) : {report.runs_24h}")
+
+    if report.warnings:
+        print()
+        print("  AVISOS:")
+        for warning in report.warnings:
+            print(f"    - {warning}")
+
+    print()
+    print("  Nota: una observacion sin precios no es un fallo. Si los mercados no")
+    print("  tienen libro, registrar que estaban vacios es el comportamiento correcto.")
+
+    return 0 if report.healthy else 1
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -666,7 +711,15 @@ def build_parser() -> argparse.ArgumentParser:
         dest="max_cycles",
         help="terminar tras N ciclos (por defecto corre hasta recibir SIGTERM)",
     )
-    collector_sub.add_parser("status", help="cobertura de snapshots recogidos")
+    collector_sub.add_parser("status", help="cobertura de observaciones recogidas")
+    health = collector_sub.add_parser("health", help="estado de salud para supervision")
+    health.add_argument(
+        "--stale-minutes",
+        type=float,
+        default=180.0,
+        dest="stale_minutes",
+        help="minutos sin observaciones tras los que se avisa (por defecto 180)",
+    )
 
     feats = sub.add_parser("features", help="generacion de features")
     feats_sub = feats.add_subparsers(dest="subcommand", required=True)
@@ -720,11 +773,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     settings = get_settings()
     settings.ensure_directories()
+    # `console=None` deja que se decida solo: activado bajo systemd para que los
+    # registros lleguen al journal, desactivado en uso interactivo.
     setup_logging(
         logs_dir=settings.logs_dir,
         level=settings.log_level,
         secrets=secrets_from_settings(settings),
-        console=False,
+        console=None,
     )
 
     key = args.command
@@ -746,6 +801,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "betfair check": _cmd_betfair_check,
         "collector start": _cmd_collector_start,
         "collector status": _cmd_collector_status,
+        "collector health": _cmd_collector_health,
         "features build": _cmd_features_build,
         "elo build": _cmd_elo_build,
         "elo evaluate": _cmd_elo_evaluate,

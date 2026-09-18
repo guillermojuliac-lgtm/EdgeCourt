@@ -1,66 +1,81 @@
-# EdgeCourt - collector de cuotas de Betfair (SOLO LECTURA)
+# EdgeCourt — collector de cuotas de Betfair (SOLO LECTURA)
 #
-# ESTE FICHERO ES UN EJEMPLO. No se instala automaticamente.
-# Revisalo entero, ajusta las rutas y el usuario, y solo entonces:
+# Recoge observaciones de mercado y las escribe en PostgreSQL. No existe en todo
+# el proyecto codigo capaz de enviar, modificar ni cancelar una apuesta.
 #
-#   sudo cp deploy/edgecourt-collector.service /etc/systemd/system/
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now edgecourt-collector
-#
-# Comprobar:   systemctl status edgecourt-collector
-# Ver logs:    journalctl -u edgecourt-collector -f
+# Instalacion: bash scripts/install_service.sh  (no se instala solo)
 
 [Unit]
-Description=EdgeCourt Betfair odds collector (read-only)
-Documentation=file:///opt/edgecourt/README.md
-After=network-online.target
+Description=EdgeCourt Betfair odds collector (read-only, paper mode)
+Documentation=file:///home/willy/Proyectos/Develop/EdgeCourt/README.md
+
+# La red debe estar operativa: el collector habla con la API de Betfair.
+After=network-online.target postgresql.service
 Wants=network-online.target
+# PostgreSQL es la fuente de verdad; sin el, el collector no puede escribir.
+Requires=postgresql.service
 
 [Service]
 Type=simple
-User=edgecourt
-Group=edgecourt
-WorkingDirectory=/opt/edgecourt
 
-# Las credenciales viven en un fichero aparte, con permisos 600 y propiedad del
-# usuario del servicio. Nunca en esta unidad, que es legible por cualquiera.
-EnvironmentFile=/etc/edgecourt/edgecourt.env
+# Nunca como root.
+User=willy
+Group=willy
+WorkingDirectory=/home/willy/Proyectos/Develop/EdgeCourt
 
-ExecStart=/opt/edgecourt/.venv/bin/edgecourt collector start
+# Se ejecuta el binario del entorno virtual del proyecto, sin pasar por `uv`:
+# una capa menos y un PID directo, que es lo que systemd sabe supervisar.
+ExecStart=/home/willy/Proyectos/Develop/EdgeCourt/.venv/bin/edgecourt collector start
+
+# NO se define EnvironmentFile: la configuracion la lee la propia aplicacion del
+# .env del proyecto (ruta absoluta, permisos 600). Asi ningun secreto aparece en
+# este fichero, que es legible por cualquier usuario del sistema.
 
 # Apagado ordenado: el collector convierte SIGTERM en una parada limpia que
-# cierra la sesion en Betfair antes de salir.
+# termina el ciclo en curso, cierra la sesion en Betfair y libera el bloqueo.
 KillSignal=SIGTERM
-TimeoutStopSec=30
+TimeoutStopSec=60
 
-# Reinicio ante fallos temporales, pero sin bucle infinito: si falla 5 veces en
-# 5 minutos, systemd se rinde. Un fallo de credenciales aborta de inmediato, y
-# ese limite evita que se reintente para siempre sin que nadie se entere.
+# --- Politica de reinicio ---------------------------------------------------
+# Se reinicia ante fallos, pero no en bucle: si falla 5 veces en 10 minutos,
+# systemd se rinde y deja el servicio en estado 'failed'. Sin ese limite, un
+# error de configuracion generaria reintentos indefinidos que solo llenarian el
+# journal y consumirian cuota de API.
 Restart=on-failure
-RestartSec=30
-StartLimitIntervalSec=300
+RestartSec=60
+StartLimitIntervalSec=600
 StartLimitBurst=5
 
-# Endurecimiento. El servicio solo necesita leer su codigo y escribir sus datos.
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictAddressFamilies=AF_INET AF_INET6
-RestrictNamespaces=true
-LockPersonality=true
-MemoryDenyWriteExecute=true
-ReadWritePaths=/opt/edgecourt/data /opt/edgecourt/logs
-
-# Limite de memoria: el collector no deberia acercarse, y si lo hace es un fallo.
-MemoryMax=1G
-
+# --- Registro ---------------------------------------------------------------
+# La aplicacion detecta systemd y emite JSON por stdout, que el journal indexa.
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=edgecourt-collector
+
+# --- Endurecimiento ---------------------------------------------------------
+# El servicio solo necesita leer su codigo y escribir sus datos y logs.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Solo se permite salir a Internet por IP; nada de sockets exoticos.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# ProtectHome=read-only dejaria el .env y los certificados accesibles en lectura,
+# pero impediria escribir en data/ y logs/. Se conceden esas dos rutas.
+ProtectHome=read-only
+ReadWritePaths=/home/willy/Proyectos/Develop/EdgeCourt/data
+ReadWritePaths=/home/willy/Proyectos/Develop/EdgeCourt/logs
+
+# El collector no deberia acercarse a este limite; si lo hace, es un fallo.
+MemoryMax=1G
 
 [Install]
 WantedBy=multi-user.target

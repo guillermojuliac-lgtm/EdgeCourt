@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import logging.handlers
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -120,11 +121,21 @@ def _file_handler(path: Path, level: int, redactor: SecretRedactionFilter) -> lo
     return handler
 
 
+def running_under_systemd() -> bool:
+    """Detecta si el proceso lo ha lanzado systemd.
+
+    `INVOCATION_ID` la define systemd para cada unidad y `JOURNAL_STREAM` aparece
+    cuando la salida esta conectada al journal. Sirve para decidir si conviene
+    emitir tambien por stdout, que es lo que `journalctl` recoge.
+    """
+    return bool(os.environ.get("INVOCATION_ID") or os.environ.get("JOURNAL_STREAM"))
+
+
 def setup_logging(
     logs_dir: Path,
     level: str = "INFO",
     secrets: frozenset[str] = frozenset(),
-    console: bool = True,
+    console: bool | None = None,
 ) -> None:
     """Configura el arbol de loggers de EdgeCourt. Idempotente.
 
@@ -132,8 +143,11 @@ def setup_logging(
         logs_dir: directorio donde se escriben los ficheros de log.
         level: nivel minimo global.
         secrets: valores literales que nunca deben aparecer en los logs.
-        console: si ademas se escribe en stderr (util en CLI y en systemd).
+        console: si ademas se escribe por consola. Con `None` se decide solo:
+            activado bajo systemd, para que los registros lleguen al journal.
     """
+    if console is None:
+        console = running_under_systemd()
     logs_dir.mkdir(parents=True, exist_ok=True)
     numeric_level = getattr(logging, level.upper(), logging.INFO)
     redactor = SecretRedactionFilter(secrets)
@@ -157,7 +171,13 @@ def setup_logging(
     if console:
         stream = logging.StreamHandler()
         stream.setLevel(numeric_level)
-        stream.setFormatter(logging.Formatter("%(levelname)-8s %(name)s: %(message)s"))
+        # Bajo systemd se emite JSON, que el journal indexa y permite filtrar;
+        # en uso interactivo, un formato legible.
+        stream.setFormatter(
+            JsonFormatter()
+            if running_under_systemd()
+            else logging.Formatter("%(levelname)-8s %(name)s: %(message)s")
+        )
         stream.addFilter(redactor)
         root.addHandler(stream)
 
