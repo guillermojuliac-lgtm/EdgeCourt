@@ -148,23 +148,61 @@ git check-ignore -v .env     # debe responder que está ignorado
 
 ## Paso 5 — Verificar
 
+**Antes de arrancar el collector**, comprueba credenciales y acceso de lectura de forma
+aislada:
+
 ```bash
-uv run edgecourt collector start --max-cycles 1
+uv run edgecourt betfair check
 ```
 
-Ejecuta **un solo ciclo** y termina.
+Este comando **no escribe absolutamente nada en disco** y cierra la sesión al terminar.
+Comprueba, parándose en el primer fallo:
+
+1. que la configuración está completa;
+2. que la clave privada tiene permisos `600` y no está cifrada con passphrase;
+3. que el par clave/certificado coincide, es RSA de 2048 bits y sigue vigente;
+4. que el login por certificado funciona;
+5. que se pueden leer eventos, mercados y precios.
+
+Salida esperada:
+
+```
+  [ OK  ] Configuracion          usuario definido, app key de NN caracteres
+  [ OK  ] Permisos de la clave   solo accesible por su propietario
+  [ OK  ] Clave sin passphrase   apta para ejecucion desatendida
+  [ OK  ] Par clave/certificado  coinciden
+  [ OK  ] Tamano de clave        RSA de 2048 bits
+  [ OK  ] Vigencia               valido hasta 2036-09-15 (3650 dias)
+  [ OK  ] Login por certificado  sesion obtenida
+  [ OK  ] Lectura de eventos     NN eventos de tenis visibles
+  [ OK  ] Lectura de mercados    N mercados Match Odds
+  [ OK  ] Lectura de precios     N libros de precios
+```
 
 | Código de salida | Significado |
 |---|---|
 | `0` | Todo correcto |
-| `5` | Falta configuración — el mensaje dice exactamente qué variable |
+| `5` | Alguna comprobación falló — el detalle dice cuál y por qué |
 
-Después:
+Ningún secreto aparece en la salida: de la app key solo se muestra su longitud, y del token de
+sesión nada en absoluto.
+
+Cuando pase, ya puedes recolectar:
 
 ```bash
-uv run edgecourt collector start      # corre hasta recibir SIGTERM
-uv run edgecourt collector status     # cobertura de snapshots por hito
+uv run edgecourt collector start --max-cycles 1   # un ciclo y termina (SI escribe snapshots)
+uv run edgecourt collector start                  # hasta recibir SIGTERM
+uv run edgecourt collector status                 # cobertura por hito
 ```
+
+### Cuidado al escribir el `.env`
+
+El fichero se lee línea a línea, sin shell, así que:
+
+- **No pongas comillas** salvo que formen parte del valor.
+- Si la contraseña contiene `#`, espacios o caracteres raros, **entrecomíllala**:
+  `BETFAIR_PASSWORD='mi#contrasena rara'`.
+- Las rutas deben ser **absolutas**: `~` no se expande.
 
 ---
 

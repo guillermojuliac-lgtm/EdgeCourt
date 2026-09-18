@@ -342,6 +342,39 @@ def _cmd_model_compare(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_betfair_check(settings: Settings, args: argparse.Namespace) -> int:
+    """Verifica credenciales y acceso de lectura. NO escribe nada en disco."""
+    from edgecourt.market.healthcheck import run_healthcheck
+
+    print("VERIFICACION DE BETFAIR — solo lectura, sin escribir nada")
+    print(f"  modo           : {settings.betting_mode.upper()}")
+    print(f"  apuestas reales: {'HABILITADAS' if REAL_BETTING_ENABLED else 'NO IMPLEMENTADAS'}")
+    print(f"  certificado    : {settings.betfair_cert_path}")
+    print(f"  clave          : {settings.betfair_key_path}")
+    print()
+
+    report = run_healthcheck(settings, sample_size=args.sample)
+
+    width = max(len(check.name) for check in report.checks) if report.checks else 20
+    for check in report.checks:
+        print(f"  [{check.symbol:^5}] {check.name:<{width}}  {check.detail}")
+
+    if report.sample:
+        print()
+        print("  Muestra de mercados visibles:")
+        for line in report.sample:
+            print(f"    - {line}")
+
+    print()
+    if report.ok:
+        print("Todo correcto. Ya puedes arrancar el collector:")
+        print("  uv run edgecourt collector start")
+        return 0
+
+    print("Hay comprobaciones fallidas. Revisa docs/BETFAIR_SETUP.md.", file=sys.stderr)
+    return 5
+
+
 def _cmd_pending(key: str) -> int:
     phase, description = PENDING[key]
     print(f"`edgecourt {key}` -> {description}")
@@ -386,6 +419,15 @@ def build_parser() -> argparse.ArgumentParser:
     train = sub.add_parser("train", help="entrenar un modelo challenger")
     train.add_argument("--slot", default="challenger", choices=["challenger", "production"])
     train.add_argument("--min-matches", type=int, default=10, dest="min_matches")
+
+    betfair = sub.add_parser("betfair", help="utilidades de la capa Betfair (solo lectura)")
+    betfair_sub = betfair.add_subparsers(dest="subcommand", required=True)
+    check_cmd = betfair_sub.add_parser(
+        "check", help="verificar credenciales y acceso de lectura, sin escribir nada"
+    )
+    check_cmd.add_argument(
+        "--sample", type=int, default=5, help="mercados de muestra a consultar (por defecto 5)"
+    )
 
     collector = sub.add_parser("collector", help="collector de cuotas de Betfair (solo lectura)")
     collector_sub = collector.add_subparsers(dest="subcommand", required=True)
@@ -469,6 +511,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data check": _cmd_data_check,
         "train": _cmd_train,
         "model compare": _cmd_model_compare,
+        "betfair check": _cmd_betfair_check,
         "collector start": _cmd_collector_start,
         "collector status": _cmd_collector_status,
         "features build": _cmd_features_build,
