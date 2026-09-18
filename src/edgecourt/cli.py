@@ -222,6 +222,7 @@ def _cmd_features_build(settings: Settings, _args: argparse.Namespace) -> int:
 def _cmd_collector_start(settings: Settings, args: argparse.Namespace) -> int:
     """Arranca el collector de cuotas. Solo lectura, sin capacidad de apostar."""
     from edgecourt.db.connection import dsn_from_env, redact_dsn
+    from edgecourt.db.locks import LockNotAcquiredError
     from edgecourt.market.auth import MissingCredentialsError
     from edgecourt.market.collector import Collector
 
@@ -239,8 +240,13 @@ def _cmd_collector_start(settings: Settings, args: argparse.Namespace) -> int:
         cycles = collector.run(max_cycles=args.max_cycles)
     except MissingCredentialsError as exc:
         print(f"No se puede arrancar: {exc}", file=sys.stderr)
-        print("Consulta la seccion 'Betfair' del README para configurarlas.", file=sys.stderr)
+        print("Consulta docs/BETFAIR_SETUP.md para configurarlas.", file=sys.stderr)
         return 5
+    except LockNotAcquiredError as exc:
+        # No es un error del sistema: es la proteccion funcionando. Se informa
+        # sin traza, porque no hay nada que depurar.
+        print(f"No se puede arrancar: {exc}", file=sys.stderr)
+        return 6
     print(f"Detenido tras {cycles} ciclo(s). run_id: {collector.run_id}")
     return 0
 

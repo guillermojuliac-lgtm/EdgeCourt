@@ -101,3 +101,46 @@ def test_secrets_from_settings(settings_factory):
     assert "abcdef123456" in secrets
     assert "key-abcdef" in secrets
     assert "" not in secrets
+
+
+@pytest.mark.critical
+def test_specific_loggers_also_reach_errors_log(tmp_path):
+    """Los errores del collector deben llegar a errors.log, no solo a su fichero.
+
+    Regresion: los loggers especificos tenian `propagate=False` para no duplicar
+    lineas en application.log, pero eso los desconectaba tambien de errors.log y
+    de la consola. Los fallos del collector solo existian en collector.log.
+    """
+    setup_logging(tmp_path, console=False)
+    get_logger("collector").error("fallo del collector")
+    get_logger("training").warning("aviso de entrenamiento")
+
+    errors = (tmp_path / "errors.log").read_text()
+    assert "fallo del collector" in errors
+    assert "aviso de entrenamiento" in errors
+
+
+@pytest.mark.critical
+def test_specific_loggers_reach_the_console(tmp_path, capsys):
+    """Bajo systemd, la consola es lo que recoge journalctl.
+
+    Sin esto, `journalctl -u edgecourt-collector` no mostraria ni los ciclos ni
+    los errores del servicio, y seria inutil para supervisarlo.
+    """
+    setup_logging(tmp_path, console=True)
+    get_logger("collector").info("ciclo completado", extra={"written": 3})
+
+    captured = capsys.readouterr()
+    assert "ciclo completado" in (captured.err + captured.out)
+
+
+def test_no_duplicate_lines_in_application_log(tmp_path):
+    """La razon original de propagate=False sigue respetandose."""
+    setup_logging(tmp_path, console=False)
+    get_logger("collector").info("mensaje del collector")
+
+    application = (tmp_path / "application.log").read_text()
+    assert "mensaje del collector" not in application
+
+    collector_log = (tmp_path / "collector.log").read_text()
+    assert collector_log.count("mensaje del collector") == 1

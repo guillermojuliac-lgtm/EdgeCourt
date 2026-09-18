@@ -152,6 +152,19 @@ def setup_logging(
     numeric_level = getattr(logging, level.upper(), logging.INFO)
     redactor = SecretRedactionFilter(secrets)
 
+    def _console_handler() -> logging.Handler:
+        handler = logging.StreamHandler()
+        handler.setLevel(numeric_level)
+        # Bajo systemd se emite JSON, que el journal indexa y permite filtrar;
+        # en uso interactivo, un formato legible.
+        handler.setFormatter(
+            JsonFormatter()
+            if running_under_systemd()
+            else logging.Formatter("%(levelname)-8s %(name)s: %(message)s")
+        )
+        handler.addFilter(redactor)
+        return handler
+
     for logger_name, filename in LOG_FILES.items():
         logger = logging.getLogger(logger_name)
         # Idempotencia: reconfigurar no debe duplicar handlers.
@@ -160,27 +173,24 @@ def setup_logging(
             handler.close()
         logger.setLevel(numeric_level)
         logger.addHandler(_file_handler(logs_dir / filename, numeric_level, redactor))
-        # Los loggers especificos no propagan: de lo contrario cada linea del
-        # collector acabaria duplicada en application.log.
+
+        # Los loggers especificos no propagan, para que cada linea del collector
+        # no acabe duplicada en application.log. Pero entonces tampoco llegarian
+        # al resto de destinos, asi que se les adjuntan explicitamente:
+        #
+        #   - errors.log, que debe recoger los avisos y errores de TODO el arbol;
+        #   - la consola, que bajo systemd es lo que ve `journalctl`.
+        #
+        # Sin esto, los ciclos y los fallos del collector solo existirian en su
+        # propio fichero, y `journalctl -u edgecourt-collector` no serviria para
+        # supervisar el servicio.
+        logger.addHandler(_file_handler(logs_dir / "errors.log", logging.WARNING, redactor))
+        if console:
+            logger.addHandler(_console_handler())
+
         logger.propagate = logger_name == "edgecourt"
 
     root = logging.getLogger("edgecourt")
-    # errors.log recoge WARNING y superior de todo el arbol.
-    root.addHandler(_file_handler(logs_dir / "errors.log", logging.WARNING, redactor))
-
-    if console:
-        stream = logging.StreamHandler()
-        stream.setLevel(numeric_level)
-        # Bajo systemd se emite JSON, que el journal indexa y permite filtrar;
-        # en uso interactivo, un formato legible.
-        stream.setFormatter(
-            JsonFormatter()
-            if running_under_systemd()
-            else logging.Formatter("%(levelname)-8s %(name)s: %(message)s")
-        )
-        stream.addFilter(redactor)
-        root.addHandler(stream)
-
     root.propagate = False
 
 

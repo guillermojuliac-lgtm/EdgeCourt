@@ -15,6 +15,13 @@ Wants=network-online.target
 # PostgreSQL es la fuente de verdad; sin el, el collector no puede escribir.
 Requires=postgresql.service
 
+# Limite de reintentos: si falla 5 veces en 10 minutos, systemd se rinde y deja
+# el servicio en estado 'failed'. Sin este tope, un error de configuracion
+# generaria reinicios indefinidos que solo llenarian el journal y consumirian
+# cuota de la API de Betfair.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
 [Service]
 Type=simple
 
@@ -43,8 +50,9 @@ TimeoutStopSec=60
 # journal y consumirian cuota de API.
 Restart=on-failure
 RestartSec=60
-StartLimitIntervalSec=600
-StartLimitBurst=5
+# El limite de intentos (StartLimitIntervalSec / StartLimitBurst) vive en la
+# seccion [Unit], no aqui: systemd lo movio hace varias versiones y colocarlo en
+# [Service] hace que se ignore en silencio, dejando los reinicios sin tope.
 
 # --- Registro ---------------------------------------------------------------
 # La aplicacion detecta systemd y emite JSON por stdout, que el journal indexa.
@@ -73,6 +81,11 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 ProtectHome=read-only
 ReadWritePaths=/home/willy/Proyectos/Develop/EdgeCourt/data
 ReadWritePaths=/home/willy/Proyectos/Develop/EdgeCourt/logs
+
+# Sin esto, los ficheros que crea el servicio quedan legibles por cualquier
+# usuario del sistema. Los logs se redactan, pero un log solo lo debe leer quien
+# opera el servicio.
+UMask=0077
 
 # El collector no deberia acercarse a este limite; si lo hace, es un fallo.
 MemoryMax=1G
