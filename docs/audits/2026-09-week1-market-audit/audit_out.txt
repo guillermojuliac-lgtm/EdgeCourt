@@ -1,0 +1,259 @@
+MINIMUM_LIQUIDITY efectivo: 50.0
+
+### T1 — Por OBSERVACIÓN: cobertura, liquidez (total_available, €)
+       grupo  mercados  obs  pct_precios  pct_liq  pct_spread2l  pct_liq_ge_min  liq_p50_incl0  liq_p25  liq_p50  liq_p75  liq_p90
+         24h         3    3          0.0      0.0           0.0             0.0           0.00      NaN      NaN      NaN      NaN
+         12h        29   29          6.9      6.9           3.4             3.4           0.00   152.11   291.68   431.25   514.99
+          6h        37   37         29.7     29.7          21.6            24.3           0.00   215.13   415.21   526.33  1101.77
+          1h        53   53         32.1     32.1          32.1            32.1           0.00   736.02  1075.02  1282.44  1500.38
+         10m        58   58         37.9     37.9          29.3            37.9           0.00   310.37   714.17  1132.45  1558.44
+       close        58   58         41.4     41.4          36.2            41.4           0.00   434.82   785.28  1190.99  1478.68
+    adaptive        26 1259         73.1     73.1          62.9            72.4         430.57   321.92   645.82  1194.48  1637.16
+     A90-360        11   99         93.9     93.9          79.8            88.9         480.54   314.75   480.54  1091.50  1441.04
+      A30-90        19  106         89.6     89.6          84.0            89.6         971.01   559.62   999.35  1275.64  1589.25
+      A10-30        20   90         88.9     88.9          78.9            88.9         712.93   639.44   848.43  1271.95  1505.10
+       A0-10        26  964         67.6     67.6          57.4            67.3         320.82   319.78   644.30  1152.39  1637.16
+hitos(todos)        62  238         31.9     31.9          26.9            30.7           0.00   320.69   725.23  1155.24  1468.45
+         ALL        62 1497         66.5     66.5          57.2            65.8         321.92   321.92   648.78  1167.48  1589.25
+
+### T2 — Por OBSERVACIÓN: spread BACK/LAY (max_spread_pct, peor runner) sobre obs con ambos lados
+       grupo  n_spread   p25   p50   p75    p90  le1  le2  le5  le10  gt10  ticks_p50  ticks_p90  fav_spread_p50  book_back_p50  book_lay_p50  top_depth_p50
+         24h         0   NaN   NaN   NaN    NaN  NaN  NaN  NaN   NaN   NaN        NaN        NaN             NaN            NaN           NaN            NaN
+         12h         1 14.66 14.66 14.66  14.66  0.0  0.0  0.0   0.0 100.0       17.0       17.0           14.66            NaN           NaN           5.84
+          6h         8 14.97 29.12 43.32  93.98  0.0  0.0  0.0   0.0 100.0       21.0       35.0           11.68           1.09          0.90          41.84
+          1h        17 16.67 31.05 49.37  57.02  0.0  0.0  5.9   5.9  94.1       26.0       31.0           13.93           1.09          0.90          62.49
+         10m        17 24.37 36.99 61.11 123.89  0.0  0.0  5.9  11.8  88.2       26.0       31.6           13.07           1.09          0.91          68.41
+       close        21 26.17 34.47 53.25 111.54  0.0  0.0  4.8   9.5  90.5       26.0       34.0           13.45           1.09          0.90          88.35
+    adaptive       792 24.75 34.47 55.56 126.17  0.0  0.0  2.4   7.4  92.6       25.0       34.0           13.22           1.09          0.90          66.68
+     A90-360        79 13.04 20.00 46.88  76.74  0.0  0.0  2.5   5.1  94.9       17.0       33.0           11.88           1.09          0.93          37.20
+      A30-90        89 21.31 30.00 49.37  61.11  0.0  0.0  6.7   9.0  91.0       24.0       31.2           13.45           1.09          0.91          61.18
+      A10-30        71 23.19 27.66 51.15  66.23  0.0  0.0  5.6  11.3  88.7       26.0       30.0           13.45           1.09          0.91          76.74
+       A0-10       553 26.17 42.42 59.46 203.03  0.0  0.0  1.3   7.1  92.9       25.0       37.0           13.22           1.09          0.90          66.68
+hitos(todos)        64 21.84 32.58 53.51 111.54  0.0  0.0  4.7   7.8  92.2       25.5       34.0           13.45           1.09          0.90          68.41
+         ALL       856 24.66 34.47 55.56 121.74  0.0  0.0  2.6   7.5  92.5       25.0       34.0           13.22           1.09          0.90          66.68
+
+### T3 — Por OBSERVACIÓN: total_matched (€)
+       grupo  n_notnull  pct_gt0  p25  p50  p75    p90     max  p50_si_gt0
+         24h          3      0.0  0.0  0.0  0.0   0.00    0.00         NaN
+         12h         29      0.0  0.0  0.0  0.0   0.00    0.00         NaN
+          6h         37      2.7  0.0  0.0  0.0   0.00   20.00       20.00
+          1h         53     11.3  0.0  0.0  0.0   1.59  361.20       43.05
+         10m         58     12.1  0.0  0.0  0.0  23.67 1326.00      136.00
+       close         58     12.1  0.0  0.0  0.0  23.67 1406.00      136.00
+    adaptive       1259     22.9  0.0  0.0  0.0  60.53 1406.00       60.53
+     A90-360         99     27.3  0.0  0.0 11.0  23.96  136.00       20.00
+      A30-90        106     30.2  0.0  0.0 22.0 136.00 1001.99       25.56
+      A10-30         90     30.0  0.0  0.0 22.0 136.00 1326.00       60.55
+       A0-10        964     21.0  0.0  0.0  0.0  60.53 1406.00       60.53
+hitos(todos)        238      8.8  0.0  0.0  0.0   0.00 1406.00       60.54
+         ALL       1497     20.6  0.0  0.0  0.0  60.53 1406.00       60.53
+
+### T4 — Por MERCADO (cada mercado pesa 1): se agrega por mercado dentro del grupo y luego se describe entre mercados
+       grupo  mercados  pct_mk_alguna_vez_precios  pct_mk_liq  pct_mk_liq_ge_min  frac_obs_con_precio_mediana  liq_med_p25  liq_med_p50  liq_med_p75  n_mk_spread  sp_p25  sp_p50  sp_p75  sp_p90  mk_sp_le1  mk_sp_le2  mk_sp_le5  mk_sp_le10  mk_sp_gt10  tm_max_p50  tm_max_p90
+         24h         3                        0.0         0.0                0.0                          0.0          NaN          NaN          NaN            0     NaN     NaN     NaN     NaN        NaN        NaN        NaN         NaN         NaN         0.0        0.00
+         12h        29                        6.9         6.9                3.4                          0.0       152.11       291.68       431.25            1   14.66   14.66   14.66   14.66        0.0        0.0        0.0         0.0       100.0         0.0        0.00
+          6h        37                       29.7        29.7               24.3                          0.0       215.13       415.21       526.33            8   14.97   29.12   43.32   93.98        0.0        0.0        0.0         0.0       100.0         0.0        0.00
+          1h        53                       32.1        32.1               32.1                          0.0       736.02      1075.02      1282.44           17   16.67   31.05   49.37   57.02        0.0        0.0        5.9         5.9        94.1         0.0        1.59
+         10m        58                       37.9        37.9               37.9                          0.0       310.37       714.17      1132.45           17   24.37   36.99   61.11  123.89        0.0        0.0        5.9        11.8        88.2         0.0       23.67
+       close        58                       41.4        41.4               41.4                          0.0       434.82       785.28      1190.99           21   26.17   34.47   53.25  111.54        0.0        0.0        4.8         9.5        90.5         0.0       23.67
+    adaptive        26                      100.0       100.0              100.0                         92.5       449.39       769.93      1137.82           24   24.40   33.64   53.28   80.37        0.0        0.0        4.2         8.3        91.7         0.0      306.60
+     A90-360        11                      100.0       100.0              100.0                        100.0       357.31       576.45      1017.27           10   15.81   21.88   42.72   57.59        0.0        0.0        0.0         0.0       100.0         0.0       25.56
+      A30-90        19                       94.7        94.7               94.7                        100.0       469.99      1013.97      1242.54           17   22.34   28.02   49.37   57.02        0.0        0.0        5.9        11.8        88.2         0.0      181.04
+      A10-30        20                       90.0        90.0               90.0                        100.0       642.45      1051.46      1268.30           17   19.88   27.66   49.37   63.16        0.0        0.0        5.9        11.8        88.2         0.0      158.52
+       A0-10        26                       96.2        96.2               96.2                         92.1       455.05       756.57      1278.20           23   26.79   34.47   53.77   82.57        0.0        0.0        4.3         4.3        95.7         0.0      306.60
+hitos(todos)        62                       43.5        43.5               43.5                          0.0       308.16       615.05      1142.99           24   23.21   31.58   51.95   96.41        0.0        0.0        4.2         8.3        91.7         0.0       19.80
+         ALL        62                       43.5        43.5               43.5                          0.0       412.72       685.25      1105.15           25   24.75   32.81   52.94   78.17        0.0        0.0        4.0         8.0        92.0         0.0       27.00/tmp/claude-1000/-home-willy-Proyectos-Develop-EdgeCourt/7109a600-8768-4675-8dbe-3b100156ac44/scratchpad/audit.py:119: UserWarning: obj.round has no effect with datetime, timedelta, or period dtypes. Use obj.dt.round(...) instead.
+  print(pm.drop(columns=["first_mts_price"]).sort_values("start").round(2).to_string())
+
+
+### T5 — Mercados: adaptive vs no-adaptive
+          mercados   obs  alguna_vez_precios  obs_por_mk_p50  liq_max_p50  sp_med_p50  tm_max_p50
+adaptive
+False           36   119                   1             3.0        0.000     26.8519         0.0
+True            26  1378                  26            54.0     1126.615     33.6411         0.0
+
+Peso de los 26 mercados adaptive: 1378 de 1497 obs = 92.1 %
+
+### T6 — Por competición (por mercado)
+                      mercados   obs  mk_con_precios  mk_adaptive  liq_max_p50  sp_med_p50  tm_max_p50
+comp
+Davis Cup                   33  1024              17           16       381.91    31.77860         0.0
+Billie Jean King Cup        20   273               4            4         0.00    64.69035         0.0
+Laver Cup                    9   200               6            6      1100.84    25.96150         0.0
+
+### T7 — Listado completo por mercado
+                             comp                                               event                     start  n_obs  n_adapt                   labels  any_p  frac_p  liq_max  liq_med  sp_min  sp_med   tm_max  max_mts_con_precio  adaptive
+market_id
+1.262586933             Davis Cup                    Jurij Rodionov v Gauthier Onclin 2026-09-18 13:00:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262586935             Davis Cup                        Lukas Neumayer v Zizou Bergs 2026-09-18 14:34:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262586937             Davis Cup                         Jakub Mensik v Learner Tien 2026-09-18 15:00:00+02:00      3        0             10m,1h,close   True    0.33   455.12     0.00   26.85   26.85     0.00                3.00     False
+1.262586940             Davis Cup                          Jiri Lehecka v Ben Shelton 2026-09-18 16:47:00+02:00     31       27          10m,1h,6h,close   True    0.97   381.91   339.94   12.96   16.38    60.55               67.96      True
+1.262586945             Davis Cup                     Liam Draxl v Arthur Rinderknech 2026-09-18 23:16:00+02:00     81       76      10m,12h,1h,6h,close   True    0.94  1767.28  1637.16   50.00   61.11     0.00               67.18      True
+1.262586947             Davis Cup               Felix Auger-Aliassime v Quentin Halys 2026-09-19 01:33:00+02:00     87       82      10m,12h,1h,6h,close   True    0.98  1711.54  1091.50    7.32   49.37   251.99              379.86      True
+1.262591263             Davis Cup           J S Nam / U Park v N Balaji / N Kaliyanda 2026-09-19 05:00:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617391             Davis Cup                          Soonwoo Kwon v Sumit Nagal 2026-09-19 07:30:00+02:00     50       46          10m,1h,6h,close   True    0.98  1337.75  1276.79   50.68   54.29     4.00               67.57      True
+1.262617393             Davis Cup                  Hyeon Chung v Dhakshineswar Suresh 2026-09-19 08:51:00+02:00     28       24          10m,1h,6h,close   True    0.89  1282.44  1282.44   32.81   32.81     0.00               67.16      True
+1.262598889             Davis Cup     L Miedler / N Oberleitner v S Gille / J Vliegen 2026-09-19 11:08:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617409             Davis Cup                        Jurij Rodionov v Zizou Bergs 2026-09-19 13:32:00+02:00     69       66             10m,1h,close   True    0.90   683.55   190.86   24.79   30.74     0.00               67.49      True
+1.262617507             Davis Cup                        Toby Samuel v Andres Andrade 2026-09-19 14:13:00+02:00     48       43      10m,12h,1h,6h,close   True    0.79  2215.34  1829.48   13.04   42.22     0.00              379.15      True
+1.262617509             Davis Cup                      Alexander Zverev v Matej Dodig 2026-09-19 14:14:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617413             Davis Cup       A Pavlasek / P Rikl v A Krajicek / C Harrison 2026-09-19 14:17:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617415             Davis Cup                    Lukas Neumayer v Gauthier Onclin 2026-09-19 16:17:00+02:00     82       77      10m,12h,1h,6h,close   True    0.23  1152.39     0.00   34.47   34.47     0.00               67.99      True
+1.262617513             Davis Cup                   Arthur Fery v Alvaro Guillen Meza 2026-09-19 16:24:00+02:00     76       71      10m,12h,1h,6h,close   True    0.13   571.05     0.00   11.88   11.88     0.00              379.91      True
+1.262617511             Davis Cup                      Daniel Altmaier v Dino Prizmic 2026-09-19 16:29:00+02:00     70       65      10m,12h,1h,6h,close   True    0.97  1075.02  1002.48    6.40    7.32   361.20               67.83      True
+1.262617515             Davis Cup                          Jakub Mensik v Ben Shelton 2026-09-19 17:25:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617519             Davis Cup                    Alejandro Tabilo v Daniel Merida 2026-09-19 18:17:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617517             Davis Cup                         Jiri Lehecka v Learner Tien 2026-09-19 20:03:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262624793             Davis Cup    F Auger-Aliassime / D Chan v P Herbert / B Bonzi 2026-09-19 20:08:00+02:00      4        0          10m,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262617521             Davis Cup                       Cristian Garin v Rafael Jodar 2026-09-19 20:56:00+02:00     74       69      10m,12h,1h,6h,close   True    0.18  1835.74     0.00   65.00   65.00     0.00               12.82      True
+1.262617523             Davis Cup          Felix Auger-Aliassime v Arthur Rinderknech 2026-09-19 22:28:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262624359             Davis Cup                          Liam Draxl v Quentin Halys 2026-09-20 01:11:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262660568             Davis Cup           K Krawietz / T Puetz v N Mektic / M Pavic 2026-09-20 12:08:00+02:00     28       23      10m,12h,1h,6h,close   True    0.71   497.24   314.94   22.34   24.75     0.00               67.20      True
+1.262667959             Davis Cup        N Skupski / H Patten v G Escobar / D Hidalgo 2026-09-20 13:08:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262660564             Davis Cup                     Alexander Zverev v Dino Prizmic 2026-09-20 13:51:00+02:00     48       43      10m,12h,1h,6h,close   True    0.98   748.15   615.05  100.00  150.00    22.00              379.84      True
+1.262660622             Davis Cup                        Arthur Fery v Andres Andrade 2026-09-20 14:55:00+02:00     53       48      10m,12h,1h,6h,close   True    1.00  1325.88   485.49   12.82   21.74    27.56              749.65      True
+1.262660566             Davis Cup                       Daniel Altmaier v Matej Dodig 2026-09-20 15:44:00+02:00     65       60      10m,12h,1h,6h,close   True    0.92  2275.51   856.11   10.77   30.00     0.00              379.64      True
+1.262660624             Davis Cup                   Toby Samuel v Alvaro Guillen Meza 2026-09-20 16:52:00+02:00     62       57      10m,12h,1h,6h,close   True    0.73   873.58   321.92     NaN     NaN     0.00              749.46      True
+1.262660652             Davis Cup  M T Barrios Vera / A Tabilo v J Munar / P Martinez 2026-09-20 17:08:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262668296             Davis Cup                     Alejandro Tabilo v Rafael Jodar 2026-09-20 18:59:00+02:00      4        0          10m,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262664401             Davis Cup                      Cristian Garin v Daniel Merida 2026-09-20 20:23:00+02:00      2        0                   12h,6h  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262758849  Billie Jean King Cup                       Marie Bouzkova v Sonay Kartal 2026-09-22 11:15:00+02:00      2        0                10m,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262759537  Billie Jean King Cup                       Linda Noskova v Katie Boulter 2026-09-22 14:43:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262759539  Billie Jean King Cup        K Siniakova / K Muchova v H Dart / J Burrage 2026-09-22 16:37:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262838202  Billie Jean King Cup         Sonja Zhiyenbayeva v Jessica Bouzas Maneiro 2026-09-23 11:17:00+02:00      2        0                10m,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262838417  Billie Jean King Cup                   Yulia Putintseva v Cristina Bucsa 2026-09-23 12:49:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262838420  Billie Jean King Cup  A Danilina / Z Kulambayeva v S Sorribes Tormo / C  2026-09-23 15:23:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262866234  Billie Jean King Cup                    Anhelina Kalinina v Jana Otzipka 2026-09-24 04:17:00+02:00      2        0                10m,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262866232  Billie Jean King Cup                      Elina Svitolina v Greet Minnen 2026-09-24 06:49:00+02:00     91       88             10m,1h,close   True    0.47   447.99     0.00  309.09  426.32     0.00               12.15      True
+1.262866241  Billie Jean King Cup       L Kichenok / A Kalinina v M Kempen / L Salden 2026-09-24 10:01:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262872731  Billie Jean King Cup                Elisabetta Cocciaretto v Shuai Zhang 2026-09-24 12:43:00+02:00      2        0                10m,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262873857  Billie Jean King Cup                      Jasmine Paolini v Qinwen Zheng 2026-09-24 14:11:00+02:00     32       29             10m,1h,close   True    0.97   791.00   685.25   36.99   42.42     2.00               12.72      True
+1.262872363  Billie Jean King Cup              S Errani / J Paolini v S Zhang / H Guo 2026-09-24 16:15:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262904976  Billie Jean King Cup           Jessica Bouzas Maneiro v Karolina Muchova 2026-09-25 11:00:00+02:00      1        0                      10m  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262905556  Billie Jean King Cup           Jessica Bouzas Maneiro v Karolina Muchova 2026-09-25 11:16:00+02:00      1        0                    close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262904974  Billie Jean King Cup                      Cristina Bucsa v Linda Noskova 2026-09-25 12:00:00+02:00      1        0                       1h  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262905558  Billie Jean King Cup                      Cristina Bucsa v Linda Noskova 2026-09-25 13:07:00+02:00     55       52             10m,1h,close   True    0.56   666.95   320.82   78.26   86.96     0.00               12.99      True
+1.262889473             Laver Cup                   Casper Ruud v Francisco Cerundolo 2026-09-25 14:00:00+02:00     33       28      10m,12h,1h,6h,close   True    0.97  1164.12  1118.81    3.52    4.26   136.00              379.73      True
+1.262905554  Billie Jean King Cup  S Sorribes Tormo / C Bucsa v K Siniakova / M Bouzk 2026-09-25 14:59:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262889475             Laver Cup                    Jakub Mensik v Brandon Nakashima 2026-09-25 16:35:00+02:00     70       64  10m,12h,1h,24h,6h,close   True    0.91  1495.77   644.30   25.00   25.96     0.00              379.54      True
+1.262889477             Laver Cup                     Rafael Jodar v Alexander Bublik 2026-09-25 20:00:00+02:00     34       28  10m,12h,1h,24h,6h,close   True    0.79  1177.55   633.99   19.33   24.37  1406.00              379.66      True
+1.262889480             Laver Cup           Alcaraz C / Mensik J v Bublik A / Fritz T 2026-09-25 22:15:00+02:00     15        9  10m,12h,1h,24h,6h,close   True    0.33   553.25     0.00     NaN     NaN   543.92               12.21      True
+1.262937704  Billie Jean King Cup             Tyra Caterina Grant v Anhelina Kalinina 2026-09-26 11:11:00+02:00      2        0                10m,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262937700  Billie Jean King Cup                   Jasmine Paolini v Elina Svitolina 2026-09-26 13:07:00+02:00     58       55             10m,1h,close   True    0.48   271.25     0.00   30.34   30.34     0.00               12.19      True
+1.262934424             Laver Cup                       Flavio Cobolli v Learner Tien 2026-09-26 14:00:00+02:00      4        0          10m,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262937724  Billie Jean King Cup      S Errani / J Paolini v L Kichenok / A Kalinina 2026-09-26 14:31:00+02:00      3        0             10m,1h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262934395             Laver Cup                   Alexander Zverev v Alex De Minaur 2026-09-26 16:05:00+02:00      5        1          10m,1h,6h,close   True    0.40  1438.81     0.00   51.52   51.52     0.00                1.49      True
+1.262934397             Laver Cup                       Carlos Alcaraz v Taylor Fritz 2026-09-26 20:00:00+02:00     33       28      10m,12h,1h,6h,close   True    0.97  1100.84   974.31   46.88   52.94     0.00              379.88      True
+1.262934426             Laver Cup          Ruud C / Zverev A v Bublik A / Nakashima B 2026-09-26 22:20:00+02:00      5        0      10m,12h,1h,6h,close  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+1.262997498             Laver Cup                     Alexander Zverev v Learner Tien 2026-09-27 14:10:00+02:00      1        0                       6h  False    0.00     0.00     0.00     NaN     NaN     0.00                 NaN     False
+
+### T8 — Evolución intramercado (26 mercados adaptive): mediana por mercado en cada banda de minutos al inicio
+           mercados  obs  frac_precio_mediana  liq_p25  liq_p50  liq_p75  sp_p25  sp_p50  sp_p75  ticks_p50  tm_p50  tm_p75
+b
+0-3              26  342                 0.89   204.69   597.83  1134.92   28.24   34.47   53.77      24.00     0.0    16.5
+3-10             25  649                 0.96   267.41   567.71  1090.84   24.75   32.81   53.25      25.00     0.0    22.0
+10-30            26  115                 1.00   280.48   669.30  1132.26   24.90   32.81   54.29      26.00     0.0    16.5
+30-90            26  132                 1.00     0.00   558.76  1133.44   22.34   30.00   49.37      28.50     0.0     0.0
+90-360           12  100                 1.00   267.85   509.04   976.26   15.81   21.88   42.72      18.25     0.0     5.0
+hito >360        20   40                 0.33     0.00     0.00   221.66   14.97   27.05   37.10      21.00     0.0     0.0
+
+### T9 — Pareado por mercado adaptive: primera vs última observación con precio
+  market_id                                  event  n_con_precio  mts_first  mts_last  liq_first  liq_last  sp_first  sp_last   sp_min  tk_first  tk_last  tm_first  tm_last  fav_back_first  fav_back_last
+1.262586940             Jiri Lehecka v Ben Shelton            30       68.0       0.9         89       359   12.9630  15.5172  12.9630      17.0     18.0     60.54    60.53            1.69           1.60
+1.262586945        Liam Draxl v Arthur Rinderknech            76       67.2       3.7       1052      1760   61.1111  57.3333  50.0000      26.0     24.0      0.00     0.00            1.22           1.20
+1.262586947  Felix Auger-Aliassime v Quentin Halys            85      379.9       1.2        431       117   54.6667   7.3171   7.3171      23.0      9.0      0.00   251.99            1.21           1.23
+1.262617391             Soonwoo Kwon v Sumit Nagal            49       67.6       6.2       1273        94   54.2857  50.6849  50.6849      24.0     22.0      0.00     4.00            1.23           1.23
+1.262617393     Hyeon Chung v Dhakshineswar Suresh            25       67.2       2.9       1282      1282   32.8125  32.8125  32.8125      30.0     30.0      0.00     0.00            1.42           1.42
+1.262617409           Jurij Rodionov v Zizou Bergs            62       67.5       0.1        381       684   25.0000  24.7863  24.7863      29.0     29.0      0.00     0.00            1.46           1.53
+1.262617415       Lukas Neumayer v Gauthier Onclin            19       68.0       6.7       1152      1152   34.4697  34.4697  34.4697      29.0     29.0      0.00     0.00            1.39           1.39
+1.262617507           Toby Samuel v Andres Andrade            38      379.2       1.9          4      1829       NaN  42.2222  13.0435       NaN     17.0      0.00     0.00             NaN           1.18
+1.262617511         Daniel Altmaier v Dino Prizmic            68       67.8       0.3       1075        59   12.8000  18.9655   6.4000      16.0     22.0    361.20   361.20            1.56           1.57
+1.262617513      Arthur Fery v Alvaro Guillen Meza            10      379.9     109.0        571       481   11.8812  11.8812  11.8812      12.0     12.0      0.00     0.00            1.01           1.01
+1.262617521          Cristian Garin v Rafael Jodar            13       12.8       1.5        151      1836       NaN  65.0000  65.0000       NaN     23.0      0.00     0.00             NaN           1.18
+1.262660564        Alexander Zverev v Dino Prizmic            47      379.8       0.6        274       594  185.7143 150.0000 100.0000      35.0     30.0      0.00    22.00            1.06           1.07
+1.262660566          Daniel Altmaier v Matej Dodig            60      379.6       4.2       1440       551   15.8730      NaN  10.7692      11.0      NaN      0.00     0.00            1.37            NaN
+1.262660568 K Krawietz / T Puetz v N Mektic / M Pa            20       67.2       7.0        312       492   22.3404  24.7525  22.3404      30.0     29.0      0.00     0.00            1.78           1.67
+1.262660622           Arthur Fery v Andres Andrade            53      749.6       0.4         13        29   14.6552      NaN  12.8205      17.0      NaN      0.00    27.56            1.16            NaN
+1.262660624      Toby Samuel v Alvaro Guillen Meza            45      749.5       2.0        571       863       NaN      NaN      NaN       NaN      NaN      0.00     0.00             NaN            NaN
+1.262866232         Elina Svitolina v Greet Minnen            43       12.2       0.8        308       448  426.3158 400.0000 309.0909      47.0     43.0      0.00     0.00            1.04           1.03
+1.262873857         Jasmine Paolini v Qinwen Zheng            31       12.7       1.6        687        29   36.9863      NaN  36.9863      24.0      NaN      0.00     2.00            1.34            NaN
+1.262889473      Casper Ruud v Francisco Cerundolo            32      379.7       0.6        482       126   12.2449   6.4171   3.5176      19.0     12.0      0.00   136.00            1.83           1.87
+1.262889475       Jakub Mensik v Brandon Nakashima            64      379.5       0.1        415      1496   27.0000  26.1682  25.0000      35.0     29.0      0.00     0.00            1.65           1.59
+1.262889477        Rafael Jodar v Alexander Bublik            27      379.7       0.5        156       634   31.2500  20.3390  19.3277      33.0     24.0      0.00  1406.00            1.47           1.53
+1.262889480 Alcaraz C / Mensik J v Bublik A / Frit             5       12.2       6.2        553       553       NaN      NaN      NaN       NaN      NaN    543.92   543.92             NaN            NaN
+1.262905558         Cristina Bucsa v Linda Noskova            31       13.0       0.8        328       667  111.5385  86.9565  78.2609      30.0     27.0      0.00     0.00            1.11           1.13
+1.262934395      Alexander Zverev v Alex De Minaur             2        1.5       0.5       1439      1439   51.5152  51.5152  51.5152      24.0     24.0      0.00     0.00            1.25           1.25
+1.262934397          Carlos Alcaraz v Taylor Fritz            32      379.9       0.8          8      1091       NaN  53.2468  46.8750       NaN     22.0      0.00     0.00             NaN           1.19
+1.262937700      Jasmine Paolini v Elina Svitolina            28       12.2       6.0        271       267   30.3419  31.3559  30.3419      34.0     34.0      0.00     0.00            1.49           1.48
+mercados con spread en ambos extremos: 18  spread mejora: 10  empeora: 4  igual: 4
+liq crece: 14  de 26 ; ratio mediano liq_last/liq_first: 1.48
+total_matched crece: 7 de 26  mediana tm_last: 0.0
+movimiento del precio del favorito (|log(last/first)|) p50: 0.013
+
+### T10 — Hitos pareados dentro del mismo mercado
+6h->1h: mercados con ambos hitos=35; con precio en 6h=11, en 1h=16; con spread en ambos=7; spread p50 6h=31.25 1h=31.05; mejora=6
+1h->10m: mercados con ambos hitos=52; con precio en 1h=17, en 10m=22; con spread en ambos=13; spread p50 1h=31.05 10m=32.81; mejora=4
+10m->close: mercados con ambos hitos=57; con precio en 10m=22, en close=24; con spread en ambos=17; spread p50 10m=36.99 close=38.71; mejora=3
+1h->close: mercados con ambos hitos=52; con precio en 1h=17, en close=24; con spread en ambos=15; spread p50 1h=31.05 close=32.81; mejora=2
+
+### T11 — Aparición de precio: minutos antes del inicio de la primera obs con precio (por mercado con precio)
+count     27.0
+mean     205.0
+std      225.6
+min        1.5
+25%       12.9
+50%       67.8
+75%      379.7
+90%      379.9
+max      749.6
+
+### T12 — Anomalías
+        market_id                      observed_at snapshot_label  minutes_to_start market_status  inplay  has_prices  max_spread_pct
+417   1.262617409 2026-09-19 13:31:58.563566+02:00       adaptive              0.02          OPEN    True       False             NaN
+642   1.262617415 2026-09-19 16:13:36.672406+02:00       adaptive              3.39        CLOSED   False       False             NaN
+661   1.262617513 2026-09-19 16:22:38.841212+02:00       adaptive              1.35          OPEN    True       False             NaN
+663   1.262617513 2026-09-19 16:23:39.084038+02:00       adaptive              0.35          OPEN    True       False             NaN
+1021  1.262660624 2026-09-20 16:51:02.023183+02:00       adaptive              0.97        CLOSED   False       False             NaN
+1170  1.262873857 2026-09-24 14:08:24.609257+02:00       adaptive              2.59          OPEN    True        True         37.3134
+1171  1.262873857 2026-09-24 14:09:24.844803+02:00       adaptive              1.59          OPEN    True        True             NaN
+1194  1.262904974 2026-09-25 10:52:48.541754+02:00             1h             67.19     SUSPENDED   False       False             NaN
+one_sided obs: 152 | obs con precio y sin spread: 140
+obs con has_prices y n_runner_rows!=2: 25
+spread negativo o cero: 0
+Duplicados capture_key: 0
+mercados catalogo sin observar:
+      market_id         market_start_time                    first_seen_at                     last_seen_at      competition_name                                 event_name
+23  1.262904639 2026-09-25 13:20:00+02:00 2026-09-25 10:33:45.024136+02:00 2026-09-25 10:45:46.924586+02:00  Billie Jean King Cup  Bucsa/Sorribes Tormo v Bouzkova/Siniakova
+63  1.262997506 2026-09-27 15:20:00+02:00 2026-09-27 08:11:52.047415+02:00 2026-09-27 08:50:59.117420+02:00             Laver Cup            Carlos Alcaraz v Alex de Minaur
+64  1.262997528 2026-09-27 16:30:00+02:00 2026-09-27 08:11:52.047415+02:00 2026-09-27 08:50:59.117420+02:00             Laver Cup                Rafael Jodar v Taylor Fritz
+
+### T13 — Observaciones por día (DB) y mercados que empiezan por día
+            obs  mercados  adapt  con_precio
+d
+2026-09-18  152         8    125         130
+2026-09-19  603        19    521         346
+2026-09-20  269         9    231         225
+2026-09-22    8         3      0           0
+2026-09-23    8         3      0           0
+2026-09-24  136         9    117          74
+2026-09-25  210         9    181         159
+2026-09-26  110         7     84          62
+2026-09-27    1         1      0           0
+d
+2026-09-18     5
+2026-09-19    18
+2026-09-20    10
+2026-09-22     3
+2026-09-23     3
+2026-09-24     6
+2026-09-25    10
+2026-09-26     7
+2026-09-27     3
+
+### T14 — Gaps adaptive dentro de mercado: intervalo real vs esperado
+       n  dt_p50  dt_p90  dt_max  pct_gt_1_5x
+exp
+1    957    1.00    2.01   12.05         13.4
+5     90    5.01    8.03   12.04         21.1
+10    98   10.04   18.35   30.10         13.3
+30    88   30.09   30.10   30.12          0.0

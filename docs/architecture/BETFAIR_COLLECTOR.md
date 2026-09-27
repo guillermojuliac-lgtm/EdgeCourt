@@ -1,0 +1,114 @@
+# Collector de Betfair
+
+Proceso de larga duración que observa mercados `MATCH_ODDS` de tenis y escribe lo observado en
+PostgreSQL. **Solo lectura frente a Betfair.** No decide nada ni apuesta.
+
+- **Configuración de credenciales y certificado:** [`BETFAIR_SETUP.md`](../BETFAIR_SETUP.md).
+- **Garantía de solo lectura:** [DEC-001](../DECISIONS.md#dec-001) y
+  [DEC-009](../DECISIONS.md#dec-009).
+- **Almacenamiento:** [`POSTGRESQL.md`](POSTGRESQL.md).
+
+## Estado (2026-09-27)
+
+| | |
+|---|---|
+| Servicio | `edgecourt-collector.service`, `active (running)` desde el 2026-09-18 16:00:54 CEST |
+| Uptime en los últimos 7 días | 10.054 ciclos, 0 fallos, intervalo P50 60,13 s y P99 60,57 s |
+| Jurisdicción | `es` (login en el endpoint de identidad `.es`) |
+| Betting API | `https://api.betfair.com/exchange/betting/rest/v1.0`: la global, también con sesión `.es`. Verificado que funciona en `46fae68`; **no** verificado que devuelva el mismo catálogo que un endpoint específico |
+| Tipo de Application Key | **no verificado** (*delayed* o *live*) |
+| Problemas abiertos | [Phase 3.5](../phases/PHASE_03_5_MARKET_VALIDATION.md): `keepAlive` (A), closing price (B), catálogo (C) |
+
+## Ciclo
+
+Cada `COLLECTOR_INTERVAL_SECONDS` (60 s por defecto; en la práctica, ~60,16 s por ciclo):
+
+1. **Catálogo.** `listMarketCatalogue` con:
+   - `eventTypeIds=["2"]` (tenis) y `marketTypeCodes=["MATCH_ODDS"]`;
+   - ventana `now → now + 24 h + 2 h` y `maxResults = 200`;
+   - `sort=FIRST_TO_START`.
+
+   **No hay filtro de competición**, así que entran también WTA y dobles. El catálogo se
+   sincroniza con `betfair_event`, `betfair_market` y `betfair_runner` en su propia transacción.
+2. **Estado.** Se lee de PostgreSQL por mercado: si mostró precios o liquidez, la última
+   observación y los hitos ya capturados. Así la planificación sobrevive a reinicios.
+3. **Planificación** (`market/cadence.py::plan_captures`). Como mucho, una captura por mercado y
+   ciclo:
+   - si vence un hito no capturado, se captura el hito (tiene prioridad);
+   - si no, se aplica la cadencia adaptive, solo si el mercado ya mostró precios o liquidez;
+   - con `minutes_left < 0` según la hora publicada, no se captura nada: solo pre-partido.
+4. **Precios.** `listMarketBook` en lotes de 40, con `EX_BEST_OFFERS`, profundidad 3 y
+   `virtualise=true`. Se agrupa por etiqueta.
+5. **Escritura.** Una transacción por mercado (`save_observation`), idempotente por
+   `(market_id, capture_key, observed_at)`.
+
+## Política de captura ([DEC-006](../DECISIONS.md#dec-006))
+
+| Hito | Objetivo (min antes) | Tolerancia |
+|---|---|---|
+| 24h | 1.440 | ±45 |
+| 12h | 720 | ±30 |
+| 6h | 360 | ±20 |
+| 1h | 60 | ±8 |
+| 10m | 10 | ±3 |
+| close | 2 | ±2 |
+
+| Cadencia adaptive | a menos de | cada |
+|---|---|---|
+| tramo 1 | 360 min | 30 min |
+| tramo 2 | 90 min | 10 min |
+| tramo 3 | 30 min | 5 min |
+| tramo 4 | 10 min | 1 min |
+
+`capture_key` adaptive = `a:YYYYMMDDHHMM`, alineada a la rejilla del intervalo.
+
+**Defecto conocido** (auditoría de la Semana 1, §7):
+- Los hitos se calculan contra la hora de inicio **publicada en ese momento** y no se repiten.
+- Cuando Betfair retrasa `market_start_time`, el `close` queda lejos del inicio real: 45 de 58
+  casos a más de 5 min.
+- El mercado vuelve a entrar en la ventana de 1 min una y otra vez.
+
+Se rediseña en Phase 3.5-B.
+
+## Sesión y errores
+
+- **Login** no interactivo por certificado, en el endpoint de identidad de la jurisdicción. Tanto
+  `keepAlive` como `logout` van al mismo dominio.
+- **`KEEP_ALIVE_INTERVAL` = 1 h** y `SESSION_MAX_AGE` = 8 h (`market/auth.py`).
+  - **Observado:** la sesión caduca cada ~20 min. Aparece `INVALID_SESSION_INFORMATION`, el
+    cliente invalida la sesión y reintenta con un login nuevo **dentro de la misma llamada**.
+  - Se recupera en el 100 % de los casos.
+  - Phase 3.5-A.
+- **Reintentos:**
+  - backoff exponencial ante errores de red, `TOO_MANY_REQUESTS` y errores 5xx;
+  - `INVALID_INPUT_DATA` aborta;
+  - un fallo de configuración aborta de inmediato, sin reintentar en bucle.
+- **Tras 5 fallos consecutivos**, espera larga de 300 s.
+- **Apagado:** SIGTERM o SIGINT → termina el ciclo, cierra la sesión en Betfair y libera el
+  bloqueo.
+
+## Operación
+
+```bash
+systemctl status edgecourt-collector            # estado del servicio
+journalctl -u edgecourt-collector -f            # logs JSON en vivo
+uv run edgecourt collector health               # sale con código 1 si hay avisos
+uv run edgecourt collector status               # cobertura por etiqueta (desde PostgreSQL)
+uv run edgecourt betfair check                  # credenciales y lectura, sin escribir nada
+```
+
+- **Un único collector:** advisory lock de PostgreSQL (`db/locks.py`). Si se lanza un segundo a
+  mano, sale con código 6 e indica el PID que tiene el bloqueo.
+- **Logs:** bajo systemd, JSON por stdout al journal (`SyslogIdentifier=edgecourt-collector`), y
+  además `logs/collector.log`. Los secretos se redactan por valor y por patrón.
+- **Unidad:** `deploy/edgecourt-collector.service`, instalada con `scripts/install_service.sh`,
+  que muestra la unidad y pide confirmación. La unidad real corre con el usuario del proyecto,
+  desde el repositorio, y lee el `.env` del proyecto. **`deploy/README.md` describe todavía otro
+  despliegue** (ver [problemas conocidos](../PROJECT_STATUS.md#problemas-conocidos)).
+
+## Volumen
+
+`estimate_daily_observations()` estima ~35 observaciones como máximo por mercado (6 hitos + 29
+adaptive). En la Semana 1, los mercados adaptive tuvieron **54 observaciones de mediana (máximo
+91)**, por los retrasos de `market_start_time`. El volumen total sigue siendo pequeño: 1.497
+filas en 9 días.

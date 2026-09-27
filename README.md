@@ -7,6 +7,10 @@ de Betfair Exchange.
 > benchmark Elo, regresión logística (+3,6 % de Brier skill sobre TEST), 21 features sin
 > leakage y collector de Betfair operativo escribiendo en PostgreSQL.
 > Ver [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+>
+> **Estado vigente, fase en curso (Phase 3.5 — Market validation) y decisiones:**
+> [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md). Si algo de este README lo contradice,
+> manda `docs/PROJECT_STATUS.md`.
 
 ---
 

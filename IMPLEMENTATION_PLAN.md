@@ -5,6 +5,12 @@ No se avanza de fase si los tests críticos de esa fase fallan.
 
 **Estado: PHASE 0 ✅ · 1 ✅ · 2 ✅ · 3 ✅ · 8 ✅ (pendiente de credenciales) · 4 ✅ · siguiente: PHASE 5 (XGBoost).**
 
+> **Aviso (2026-09-27):** la línea anterior es histórica. El estado vigente está en
+> [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) y en [`docs/ROADMAP.md`](docs/ROADMAP.md):
+> el collector está en operación, se ha abierto la **Phase 3.5 (Market validation)** y XGBoost
+> queda bloqueado hasta cerrarla. `docs/ROADMAP.md` incluye la equivalencia entre la numeración
+> de este plan y la del roadmap.
+
 **Orden de fases revisado (2026-09-18):** el collector de Betfair (PHASE 8) se adelanta a
 continuación de PHASE 3. Cada semana sin recolectar es muestra perdida que no se recupera,
 y sin histórico del exchange (R4) la validación económica solo puede ser hacia delante.
