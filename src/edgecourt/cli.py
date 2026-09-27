@@ -14,7 +14,8 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
-from datetime import date
+from datetime import UTC, date, datetime
+from pathlib import Path
 
 from edgecourt import __version__
 from edgecourt.config import REAL_BETTING_ENABLED, Settings, get_settings
@@ -216,6 +217,80 @@ def _cmd_features_build(settings: Settings, _args: argparse.Namespace) -> int:
             f"  {row['feature']:<34}{row['coverage_pct']:>10.1f}%"
             f"{row['mean']:>12.4f}{row['std']:>12.4f}"
         )
+    return 0
+
+
+def _utc_arg(value: str) -> datetime:
+    """Fecha u hora ISO para la CLI. Sin zona horaria se interpreta como UTC."""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"fecha no valida: {value!r}") from exc
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+
+
+def _catalogue_audit_dir(settings: Settings) -> Path:
+    return settings.data_dir / "research" / "catalogue_audit"
+
+
+def _cmd_betfair_catalogue_audit(settings: Settings, args: argparse.Namespace) -> int:
+    """Un snapshot de solo lectura del catalogo de tenis. No toca PostgreSQL."""
+    from edgecourt.market import catalogue_audit as audit
+
+    outcome = audit.run_audit(
+        settings,
+        out=args.out or _catalogue_audit_dir(settings),
+        since=args.since or audit.EXPERIMENT_START,
+        until=args.until or audit.EXPERIMENT_END,
+        dry_run=args.dry_run,
+    )
+    print(f"catalogue-audit: {outcome.status}")
+    if outcome.slot is not None:
+        print(f"  slot     : {audit.iso_utc(outcome.slot)}")
+    if outcome.run_path is not None:
+        print(f"  run      : {outcome.run_path}")
+    if outcome.run and outcome.run.get("status") == audit.STATUS_OK:
+        run = outcome.run
+        print(
+            f"  mercados : {run['tennis_market_count']} tenis,"
+            f" {run['match_odds_count']} MATCH_ODDS,"
+            f" {run['competition_count']} competiciones, {run['book_market_count']} libros"
+        )
+        print(f"  retraso  : market_data_delayed={run['market_data_delayed']}")
+    if outcome.plan:
+        print(f"  plan     : {outcome.plan}")
+    if outcome.detail:
+        print(f"  detalle  : {outcome.detail}")
+    return outcome.exit_code
+
+
+def _cmd_betfair_catalogue_report(settings: Settings, args: argparse.Namespace) -> int:
+    """Informe de la auditoria. Unico paso de 3.5-C2 que lee PostgreSQL (solo lectura)."""
+    from edgecourt.market import catalogue_audit as audit
+    from edgecourt.market import catalogue_report as report_module
+
+    lookup = None
+    if not args.no_db:
+        from edgecourt.db.connection import dsn_from_env
+
+        lookup = report_module.collector_lookup_readonly(dsn_from_env(settings))
+
+    report = report_module.build_report(
+        args.data or _catalogue_audit_dir(settings),
+        since=args.since or audit.EXPERIMENT_START,
+        until=args.until or audit.EXPERIMENT_END,
+        collector_lookup=lookup,
+    )
+    files = report_module.write_report(report, args.out)
+    print("catalogue-report")
+    print(f"  ventana    : {audit.iso_utc(report.since)} -> {audit.iso_utc(report.until)}")
+    print(
+        f"  cobertura  : {report.ok_runs}/{report.expected} slots ({report.coverage_pct} %),"
+        f" {report.error_runs} con error"
+    )
+    print(f"  mercados   : {len(report.markets)}  filas de libro: {len(report.books)}")
+    for name, path in files.items():
+        print(f"  {name:<10} : {path}")
     return 0
 
 
@@ -706,6 +781,34 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd.add_argument(
         "--sample", type=int, default=5, help="mercados de muestra a consultar (por defecto 5)"
     )
+    audit_cmd = betfair_sub.add_parser(
+        "catalogue-audit",
+        help="[3.5-C2] snapshot de solo lectura del catalogo de tenis (un slot de 30 min)",
+    )
+    audit_cmd.add_argument(
+        "--out", type=Path, default=None, help="directorio de datos (data/research/catalogue_audit)"
+    )
+    audit_cmd.add_argument(
+        "--since", type=_utc_arg, default=None, help="inicio de la ventana UTC (2026-09-29T00:00Z)"
+    )
+    audit_cmd.add_argument(
+        "--until", type=_utc_arg, default=None, help="fin de la ventana UTC (2026-10-19T00:00Z)"
+    )
+    audit_cmd.add_argument(
+        "--dry-run", action="store_true", help="muestra el plan sin llamar a Betfair ni escribir"
+    )
+    report_cmd = betfair_sub.add_parser(
+        "catalogue-report", help="[3.5-C2] informe de la auditoria de catalogo"
+    )
+    report_cmd.add_argument(
+        "--data", type=Path, default=None, help="directorio de datos de la auditoria"
+    )
+    report_cmd.add_argument("--out", type=Path, required=True, help="directorio del informe")
+    report_cmd.add_argument("--since", type=_utc_arg, default=None, help="inicio UTC")
+    report_cmd.add_argument("--until", type=_utc_arg, default=None, help="fin UTC (exclusivo)")
+    report_cmd.add_argument(
+        "--no-db", action="store_true", help="no cruzar con betfair_market (PostgreSQL)"
+    )
 
     collector = sub.add_parser("collector", help="collector de cuotas de Betfair (solo lectura)")
     collector_sub = collector.add_subparsers(dest="subcommand", required=True)
@@ -805,6 +908,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "db liquidity": _cmd_db_liquidity,
         "db export-parquet": _cmd_db_export_parquet,
         "betfair check": _cmd_betfair_check,
+        "betfair catalogue-audit": _cmd_betfair_catalogue_audit,
+        "betfair catalogue-report": _cmd_betfair_catalogue_report,
         "collector start": _cmd_collector_start,
         "collector status": _cmd_collector_status,
         "collector health": _cmd_collector_health,

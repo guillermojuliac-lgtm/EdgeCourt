@@ -1,0 +1,64 @@
+# EdgeCourt — auditoria del catalogo de tenis de Betfair (Phase 3.5-C2). SOLO LECTURA.
+#
+# Proceso corto (oneshot): login -> catalogo -> libros -> escritura atomica -> fin.
+# Totalmente separado del collector: otra unidad, otro proceso, otra sesion de
+# Betfair, y SIN acceso a PostgreSQL (no hay dependencia de postgresql.service).
+# La activa edgecourt-catalogue-audit.timer cada 30 minutos.
+#
+# Ventana del experimento: 2026-09-29 00:00 UTC -> 2026-10-19 00:00 UTC. Fuera de
+# ella el propio comando termina sin llamar a Betfair, aunque el timer siga activo.
+#
+# Instalacion: bash scripts/install_catalogue_audit.sh  (muestra las unidades y
+# pide confirmacion; no se instala sola).
+
+[Unit]
+Description=EdgeCourt Betfair tennis catalogue audit (read-only, Phase 3.5-C2)
+Documentation=file:///home/willy/Proyectos/Develop/EdgeCourt/docs/investigations/2026-10-spanish-exchange-atp-catalogue.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+# Nunca como root.
+User=willy
+Group=willy
+WorkingDirectory=/home/willy/Proyectos/Develop/EdgeCourt
+
+# Los logs de la aplicacion van tambien dentro de data/research: es el unico
+# directorio con escritura. La configuracion (.env, 600) se lee del proyecto.
+Environment=LOGS_DIR=/home/willy/Proyectos/Develop/EdgeCourt/data/research/catalogue_audit/logs
+
+ExecStart=/home/willy/Proyectos/Develop/EdgeCourt/.venv/bin/edgecourt betfair catalogue-audit \
+    --out /home/willy/Proyectos/Develop/EdgeCourt/data/research/catalogue_audit \
+    --since 2026-09-29T00:00Z --until 2026-10-19T00:00Z
+
+# Una ejecucion normal dura segundos. Si se cuelga, se corta.
+TimeoutStartSec=120
+
+# --- Registro ---------------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=edgecourt-catalogue-audit
+
+# --- Endurecimiento (equivalente al collector) ------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Solo lectura del resto del home; escritura UNICAMENTE en data/research.
+ProtectHome=read-only
+ReadWritePaths=/home/willy/Proyectos/Develop/EdgeCourt/data/research
+
+# Ficheros solo legibles por su propietario.
+UMask=0077
+
+MemoryMax=512M

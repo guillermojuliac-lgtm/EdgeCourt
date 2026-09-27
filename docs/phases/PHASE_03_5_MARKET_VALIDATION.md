@@ -166,6 +166,35 @@ registra una decisión sobre la viabilidad del objetivo inicial (ver
 **Restricción:** toda consulta extra a la API debe ser de solo lectura y puntual, con el mismo
 cliente y las mismas garantías (ver `docs/BETFAIR_SETUP.md`, apartado *Garantía de solo lectura*).
 
+### 3.5-C2 — Observación del catálogo ATP del Exchange español
+
+> **Estado de 3.5-C2 (2026-09-27)**
+>
+> | Campo | Valor |
+> |---|---|
+> | C2 | **IMPLEMENTED** (herramienta probada en real en un directorio temporal) |
+> | Timer | **INSTALLED** (`edgecourt-catalogue-audit.timer` enabled y active desde el 2026-09-27) |
+> | Experimento | **NOT STARTED** hasta el **2026-09-29 00:00 UTC** (hasta entonces cada ejecución termina como `outside_window`, sin login) |
+> | Fin | **2026-10-19 00:00 UTC** |
+
+**Objetivo:** observar de forma reproducible qué catálogo de tenis devuelve la sesión `.es`
+durante ATP 500 (Pekín, Tokio) y el Masters 1000 (Shanghái), y distinguir si la ausencia de ATP
+regular de 3.5-C era del calendario o del catálogo `.es`.
+
+**Diseño (aprobado):**
+- `edgecourt betfair catalogue-audit`: proceso corto de solo lectura cada 30 min
+  (`systemd timer`), **sin PostgreSQL**. Guarda un artefacto por slot en `data/research/`.
+- `edgecourt betfair catalogue-report`: informe con métricas comparables a las del collector y
+  cruce de solo lectura con `betfair_market`.
+- Ventana de 2026-09-29 00:00 UTC a 2026-10-19 00:00 UTC, con validez si la cobertura es
+  ≥ 95 %. Conclusión A/B/C fijada de antemano.
+
+**Protocolo completo:** [`investigations/2026-10-spanish-exchange-atp-catalogue.md`](../investigations/2026-10-spanish-exchange-atp-catalogue.md).
+
+**No toca** el collector, la cadencia, el descubrimiento, el esquema, `MINIMUM_LIQUIDITY` ni las
+App Keys. El único cambio compartido es que `MarketFilter` admite `market_type_codes=None`; el
+payload del collector no cambia (hay un test de regresión).
+
 ### 3.5-D — Seguir recopilando datos
 
 El collector sigue en marcha, sin cambios de cadencia, `MINIMUM_LIQUIDITY` ni esquema, mientras
@@ -209,6 +238,7 @@ definición fiable de closing price, **antes** de basar Value o CLV en estos dat
 | 2026-09-27 | Estructura de memoria persistente del proyecto (`docs/`) | [CHANGELOG_TECHNICAL](../CHANGELOG_TECHNICAL.md) |
 | 2026-09-27 | 3.5-C investigada: conclusión F (calendario en parte + jurisdicción `.es` con evidencia empírica). Duración de sesión de 20 min confirmada oficialmente (3.5-A). Clave Delayed verificada | [investigación](../investigations/2026-09-atp-wta-catalogue.md) |
 | 2026-09-27 | 3.5-A implementada: keepAlive cada 15 min en `es`/`it`, manejo de respuestas no JSON y log de renovación. Servicio reiniciado; keepAlive real aceptado a las 08:15:02 UTC, sin caducidades | [validación](../audits/2026-09-session-keepalive-validation.md) |
+| 2026-09-27 | 3.5-C2: herramienta de auditoría de catálogo implementada, probada en real (directorio temporal) y protocolo fijado. Experimento NOT STARTED (empieza el 2026-09-29) | [protocolo](../investigations/2026-10-spanish-exchange-atp-catalogue.md) |
 
 ## Pendiente de decisión (surgida de 3.5-C)
 

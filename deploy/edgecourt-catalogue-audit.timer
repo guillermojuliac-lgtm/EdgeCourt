@@ -1,0 +1,22 @@
+# EdgeCourt — programa la auditoria de catalogo (Phase 3.5-C2) cada 30 minutos.
+#
+# RandomizedDelaySec evita coincidir siempre con el mismo segundo del ciclo del
+# collector. Persistent=false: una ejecucion perdida no se recupera (el slot
+# queda sin observacion y cuenta en la cobertura del experimento).
+#
+# Fuera de la ventana 2026-09-29 00:00 UTC -> 2026-10-19 00:00 UTC el comando
+# termina sin llamar a Betfair. Aun asi, al terminar el experimento conviene
+# desactivarlo: sudo systemctl disable --now edgecourt-catalogue-audit.timer
+
+[Unit]
+Description=EdgeCourt catalogue audit every 30 minutes (Phase 3.5-C2)
+
+[Timer]
+OnCalendar=*-*-* *:00,30:00 UTC
+RandomizedDelaySec=120
+AccuracySec=1s
+Persistent=false
+Unit=edgecourt-catalogue-audit.service
+
+[Install]
+WantedBy=timers.target

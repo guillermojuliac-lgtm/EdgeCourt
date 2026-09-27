@@ -87,6 +87,8 @@ El collector (8) se adelantó el 2026-09-18 porque cada semana sin recolectar es
   - **3.5-A** keepAlive de la sesión;
   - **3.5-B** closing price fiable;
   - **3.5-C** ausencia de torneos ATP/WTA regulares;
+  - **3.5-C2** observación del catálogo `.es` en ATP 500/1000 (experimento del 29-sep al 19-oct,
+    [protocolo](investigations/2026-10-spanish-exchange-atp-catalogue.md));
   - **3.5-D** seguir recopilando datos.
 - **Hecho:**
   - Auditoría Semana 1 (2.ª parte), [2026-09-week1-market-audit](audits/2026-09-week1-market-audit.md).

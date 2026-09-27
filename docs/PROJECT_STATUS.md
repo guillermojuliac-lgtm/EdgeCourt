@@ -50,7 +50,7 @@ Roadmap completo en [`ROADMAP.md`](ROADMAP.md).
 | Betfair | `httpx` directo, login por certificado, jurisdicción `es` ([DEC-009](DECISIONS.md#dec-009)) |
 | Configuración | `pydantic-settings` y `.env` (nunca versionado) |
 | Operación | systemd (`edgecourt-collector.service`) |
-| Calidad | pytest (472 tests: 151 críticos y 35 de integración), ruff |
+| Calidad | pytest (503 tests: 165 críticos y 35 de integración), ruff |
 | Ausentes | Redis y Docker (ver DECISIONS, «Hechos verificados sin decisión documentada») |
 
 ## Arquitectura
@@ -107,8 +107,12 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 1. **Decisión del responsable del proyecto sobre la fuente de mercado y el alcance realista.**
    La investigación 3.5-C (completada) indica que el catálogo `.es` no ofreció ATP regular en la
    muestra.
-2. **Phase 3.5-D:** mantener la recolección y observar el catálogo `.es` en semanas ATP 500/1000
-   (Pekín y Tokio desde el 30-sep, Shanghái desde el 7-oct), con snapshots de solo lectura.
+2. **Phase 3.5-C2:** observación del catálogo `.es` durante ATP 500 (Pekín/Tokio, desde el
+   30-sep) y Masters 1000 (Shanghái, desde el 7-oct).
+   - C2 **IMPLEMENTED** y timer **INSTALLED** (enabled y active desde el 2026-09-27).
+   - Experimento **NOT STARTED** hasta el 2026-09-29 00:00 UTC; termina el 2026-10-19 00:00 UTC.
+   - [Protocolo](investigations/2026-10-spanish-exchange-atp-catalogue.md).
+   - El collector sigue recogiendo en paralelo (3.5-D).
 3. **Phase 3.5-A: VALIDATING** (implementada, validada contra Betfair real y en producción).
    Falta la validación final de 24 h: del **2026-09-27 08:00 UTC** al **2026-09-28 08:00 UTC**,
    sin `INVALID_SESSION_INFORMATION` por expiración normal de la sesión. No está DONE.

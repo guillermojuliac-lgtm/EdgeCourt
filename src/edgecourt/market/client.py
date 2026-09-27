@@ -67,16 +67,18 @@ class MarketFilter:
     """Filtro de consulta. Solo lo que el collector necesita."""
 
     event_type_ids: tuple[str, ...] = (TENNIS_EVENT_TYPE_ID,)
-    market_type_codes: tuple[str, ...] = (MATCH_ODDS,)
+    # `None` omite el filtro de tipo de mercado: lo usa la auditoria de catalogo
+    # (Phase 3.5-C2) para ver TODO el tenis visible. El collector conserva el
+    # valor por defecto y envia exactamente el mismo payload que antes.
+    market_type_codes: tuple[str, ...] | None = (MATCH_ODDS,)
     market_start_from: str | None = None
     market_start_to: str | None = None
     in_play_only: bool | None = None
 
     def as_payload(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "eventTypeIds": list(self.event_type_ids),
-            "marketTypeCodes": list(self.market_type_codes),
-        }
+        payload: dict[str, Any] = {"eventTypeIds": list(self.event_type_ids)}
+        if self.market_type_codes is not None:
+            payload["marketTypeCodes"] = list(self.market_type_codes)
         if self.market_start_from or self.market_start_to:
             window: dict[str, str] = {}
             if self.market_start_from:

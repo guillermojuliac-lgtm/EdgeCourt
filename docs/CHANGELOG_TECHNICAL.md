@@ -8,6 +8,33 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-09-27 — Phase 3.5-C2: herramienta de auditoría del catálogo de tenis
+
+- **Cambio:**
+  - `market/catalogue_audit.py` y `market/catalogue_report.py`.
+  - Comandos `edgecourt betfair catalogue-audit` y `catalogue-report`.
+  - `deploy/edgecourt-catalogue-audit.service` y `.timer`, y `scripts/install_catalogue_audit.sh`.
+  - `MarketFilter` admite `market_type_codes=None`; el payload del collector no cambia.
+- **Motivo:** observar de forma reproducible si el catálogo `.es` ofrece ATP 500/1000 (Pekín,
+  Tokio, Shanghái), sin tocar el collector.
+- **Diseño:**
+  - proceso corto de solo lectura cada 30 min, sin PostgreSQL;
+  - un artefacto por slot, conservando el primer snapshot válido;
+  - escritura atómica;
+  - catálogo direccionado por contenido y libros por slot con hash;
+  - informe con métricas del collector y de la Semana 1, y cruce de solo lectura con
+    `betfair_market`.
+- **Resultado:** ejecución real de prueba en un directorio temporal (7 mercados `.es`,
+  `market_data_delayed = true`, sin secretos, idempotencia comprobada). Timer **INSTALLED** por el
+  responsable del proyecto el 2026-09-27; hasta la ventana, las ejecuciones terminan como
+  `outside_window` sin login. Experimento **NOT STARTED** (del 2026-09-29 00:00 UTC al
+  2026-10-19 00:00 UTC).
+- **Tests:** +31 en `tests/test_catalogue_audit.py`. Suite: **503 passed** (165 críticos).
+  Barrera de solo lectura en verde. `ruff` limpio.
+- **Commit:** pendiente.
+- **Docs:** [protocolo](investigations/2026-10-spanish-exchange-atp-catalogue.md),
+  [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
+
 ## 2026-09-27 — Phase 3.5-A: keepAlive preventivo de la sesión española
 
 - **Cambio** (`src/edgecourt/market/auth.py`):
