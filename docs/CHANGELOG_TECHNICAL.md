@@ -8,6 +8,26 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-09-27 — Investigación 3.5-C: catálogo ATP/WTA de Betfair
+
+- **Cambio:** ninguno en código, datos ni configuración. Investigación de solo lectura:
+  - auditoría del código de descubrimiento;
+  - calendarios oficiales ATP y WTA;
+  - snapshot directo de la API (operaciones `list*` y `getDeveloperAppKeys`);
+  - comparación con las webs públicas betfair.es y betfair.com.
+- **Motivo:** explicar por qué la muestra no contuvo torneos ATP ni WTA regulares.
+- **Resultado:**
+  - Conclusión F: calendario en parte + restricción del catálogo de la cuenta `.es`, con
+    evidencia empírica fuerte y sin confirmación oficial.
+  - Ningún bug en EdgeCourt.
+  - Clave Delayed verificada.
+  - Sesión de 20 min en `.es` confirmada oficialmente.
+  - `DEC-002` entra en revisión.
+- **Tests:** no proceden. Collector `active`, `collector health` OK.
+- **Commit:** pendiente.
+- **Docs:** [investigación](investigations/2026-09-atp-wta-catalogue.md),
+  [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
+
 ## 2026-09-27 — Memoria persistente del proyecto
 
 - **Cambio:**
@@ -24,7 +44,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
     existiera.
 - **Tests:** no proceden, porque solo cambia documentación. Suite recolectada sin cambios: 457
   tests (143 críticos, 35 de integración).
-- **Commit:** pendiente.
+- **Commit:** `dab0233`.
 - **Docs:** [`README.md`](README.md) (convenciones).
 
 ## 2026-09-27 — Auditoría Semana 1 (2.ª parte) y apertura de Phase 3.5
@@ -40,7 +60,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   - Ningún torneo ATP ni WTA regular en la muestra.
   - Se abre Phase 3.5 y se bloquea Phase 4 ([DEC-015](DECISIONS.md#dec-015)).
 - **Tests:** no proceden.
-- **Commit:** pendiente, junto con la entrada anterior.
+- **Commit:** `dab0233` (junto con la entrada anterior).
 - **Docs:** [auditoría](audits/2026-09-week1-market-audit.md) y
   [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
 

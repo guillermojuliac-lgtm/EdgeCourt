@@ -43,8 +43,11 @@ distinguir de artefactos de captura.
   llamada fallida y un login.
 
 **Tareas.**
-1. Confirmar en la documentación oficial de Betfair la duración de la sesión para la
-   jurisdicción de la cuenta. No asumirla.
+1. ~~Confirmar en la documentación oficial de Betfair la duración de la sesión para la
+   jurisdicción de la cuenta.~~ **Hecho el 2026-09-27:** «The session expiry time is currently
+   20 minutes on the Italian & Spanish Exchange» (*Login & Session Management*, citado en la
+   [investigación 3.5-C](../investigations/2026-09-atp-wta-catalogue.md) §10). Coincide con lo
+   observado.
 2. Decidir el intervalo de `keepAlive`: por debajo de la duración de la sesión y con margen.
 3. Test de regresión: con una sesión de duración X, el `keepAlive` se ejecuta antes de X.
 4. Verificar en producción que `INVALID_SESSION_INFORMATION` desaparece o se vuelve excepcional.
@@ -95,6 +98,23 @@ distinguir de artefactos de captura.
 **Riesgo:** medio. Toca la planificación del collector y quizá el esquema.
 
 ### 3.5-C — Investigar la ausencia de torneos ATP/WTA regulares
+
+> **Estado (2026-09-27): investigación completada; decisión pendiente.**
+> Resultado completo en [`investigations/2026-09-atp-wta-catalogue.md`](../investigations/2026-09-atp-wta-catalogue.md).
+>
+> **Conclusión F) combinación.**
+> - **A) calendario, en parte:** la semana del 14-sep no tuvo ATP Tour.
+> - **D) efecto de jurisdicción, con evidencia empírica fuerte:** la API con sesión `.es`
+>   devuelve el mismo catálogo reducido que la web pública betfair.es (el 27-sep, solo Laver Cup:
+>   3 mercados; en todo el exchange, solo Soccer y Tennis). Mientras tanto, betfair.com mostraba
+>   ATP Chengdu y Hangzhou, WTA Singapur y Seúl, Challengers y WTA 125.
+> - **B) descartado:** EdgeCourt no filtra ni pierde mercados. La Delayed Key (verificada) no
+>   explica la restricción.
+>
+> La documentación oficial de Betfair consultada **no** confirma un catálogo `.es` reducido. Falta
+> saber cómo es ese catálogo en otras semanas.
+>
+> La tabla de hipótesis de abajo es la planificación original y se conserva como registro.
 
 **Observación.**
 - En 9 días (18–27 sep 2026) el catálogo solo contuvo Davis Cup (33 mercados), Billie Jean King
@@ -162,3 +182,12 @@ definición fiable de closing price, **antes** de basar Value o CLV en estos dat
 |---|---|---|
 | 2026-09-27 | Auditoría Semana 1 (2.ª parte) completada; se abre la fase | [auditoría](../audits/2026-09-week1-market-audit.md) |
 | 2026-09-27 | Estructura de memoria persistente del proyecto (`docs/`) | [CHANGELOG_TECHNICAL](../CHANGELOG_TECHNICAL.md) |
+| 2026-09-27 | 3.5-C investigada: conclusión F (calendario en parte + jurisdicción `.es` con evidencia empírica). Duración de sesión de 20 min confirmada oficialmente (3.5-A). Clave Delayed verificada | [investigación](../investigations/2026-09-atp-wta-catalogue.md) |
+
+## Pendiente de decisión (surgida de 3.5-C)
+
+- **Fuente de mercado y alcance realista.** ¿Se acepta el catálogo `.es`? ¿Se observa primero su
+  evolución longitudinal en semanas ATP 500/1000? ¿Se consideran otras vías legales? Lo decide el
+  responsable del proyecto.
+- **Prioridad de 3.5-B.** Depende de lo anterior. Un closing price sobre `.es`, con datos
+  retrasados de 1–180 s y liquidez muy baja, sería como mucho orientativo.

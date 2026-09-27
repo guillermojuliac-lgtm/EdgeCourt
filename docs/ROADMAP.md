@@ -87,7 +87,12 @@ El collector (8) se adelantó el 2026-09-18 porque cada semana sin recolectar es
   - **3.5-B** closing price fiable;
   - **3.5-C** ausencia de torneos ATP/WTA regulares;
   - **3.5-D** seguir recopilando datos.
-- **Hecho:** Auditoría Semana 1 (2.ª parte), [2026-09-week1-market-audit](audits/2026-09-week1-market-audit.md).
+- **Hecho:**
+  - Auditoría Semana 1 (2.ª parte), [2026-09-week1-market-audit](audits/2026-09-week1-market-audit.md).
+  - **3.5-C investigada**, [2026-09-atp-wta-catalogue](investigations/2026-09-atp-wta-catalogue.md):
+    el catálogo `.es` no ofreció ATP regular. EdgeCourt no pierde mercados.
+- **Bloqueo interno:** hace falta decidir la fuente de mercado y el alcance realista antes de
+  priorizar 3.5-B.
 - **Criterio de salida y detalle:** [`phases/PHASE_03_5_MARKET_VALIDATION.md`](phases/PHASE_03_5_MARKET_VALIDATION.md).
 
 ---
@@ -143,7 +148,9 @@ El collector (8) se adelantó el 2026-09-18 porque cada semana sin recolectar es
   determinista, **nunca fuzzy silencioso**, y descarte de los partidos dudosos.
 - **Estado:** `betfair_runner.player_id` existe (nullable, sin FK) y está a **NULL en todas las
   filas**. No hay código de emparejamiento.
-- **Nota:** su utilidad depende de la conclusión de 3.5-C sobre qué mercados hay.
+- **Nota:** con el catálogo `.es` observado (Davis Cup y Laver Cup como únicos eventos
+  masculinos), el volumen no justifica la fase por ahora. Depende de la decisión sobre la fuente
+  de mercado.
 
 ### Operación (PHASES 13–15 del plan)
 - Reentrenamiento semanal en el slot `challenger`.

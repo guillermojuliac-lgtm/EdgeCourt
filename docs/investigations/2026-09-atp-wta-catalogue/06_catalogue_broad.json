@@ -1,0 +1,149 @@
+[
+ {
+  "marketId": "1.262997498",
+  "marketName": "Match Odds",
+  "marketStartTime": "2026-09-27T12:10:00.000Z",
+  "description": {
+   "persistenceEnabled": true,
+   "bspMarket": false,
+   "marketTime": "2026-09-27T12:10:00.000Z",
+   "suspendTime": "2026-09-27T12:10:00.000Z",
+   "bettingType": "ODDS",
+   "turnInPlayEnabled": true,
+   "marketType": "MATCH_ODDS",
+   "regulator": "SPANISH GAMBLING AUTHORITY",
+   "marketBaseRate": 2.0,
+   "discountAllowed": false,
+   "wallet": "UK wallet",
+   "rules": "<b>Market Information</b><br>For further information please see <a href=http://www.betfair.es/en/conocenos/#reglas style=color:0163ad; text-decoration: underline; target=_blank>Rules & Regs</a>.<br><br>Who will win this match? At the start of play all unmatched bets will be cancelled and this market will be turned in-play. This market will not be actively managed therefore it is the responsibility of all users to manage their positions. <b><br><br>Customers should be aware that:<br><br> <li>Transmissions described as “live” by some broadcasters may actually be delayed and that all in-play matches are not necessarily televised.</li><br><li>The extent of any such delay may vary, depending on the set-up through which they are receiving pictures or data.</li><br><br></b><b><FONT COLOR='red'> If the first set is not completed all bets on this market will be void.</FONT></b><br><br>Please be aware that times may be subject to change.>Please be aware that times may be subject to change.",
+   "rulesHasDate": true,
+   "priceLadderDescription": {
+    "type": "CLASSIC"
+   }
+  },
+  "totalMatched": 0.0,
+  "runners": [
+   {
+    "selectionId": 19924823,
+    "runnerName": "Alexander Zverev",
+    "handicap": 0.0,
+    "sortPriority": 1
+   },
+   {
+    "selectionId": 42082091,
+    "runnerName": "Learner Tien",
+    "handicap": 0.0,
+    "sortPriority": 2
+   }
+  ],
+  "competition": {
+   "id": "11503872",
+   "name": "Laver Cup"
+  },
+  "event": {
+   "id": "36123490",
+   "name": "Alexander Zverev v Learner Tien",
+   "countryCode": "GB",
+   "timezone": "GMT",
+   "openDate": "2026-09-27T12:10:00.000Z"
+  }
+ },
+ {
+  "marketId": "1.262997506",
+  "marketName": "Match Odds",
+  "marketStartTime": "2026-09-27T13:20:00.000Z",
+  "description": {
+   "persistenceEnabled": true,
+   "bspMarket": false,
+   "marketTime": "2026-09-27T13:20:00.000Z",
+   "suspendTime": "2026-09-27T13:20:00.000Z",
+   "bettingType": "ODDS",
+   "turnInPlayEnabled": true,
+   "marketType": "MATCH_ODDS",
+   "regulator": "SPANISH GAMBLING AUTHORITY",
+   "marketBaseRate": 2.0,
+   "discountAllowed": false,
+   "wallet": "UK wallet",
+   "rules": "<b>Market Information</b><br>For further information please see <a href=http://www.betfair.es/en/conocenos/#reglas style=color:0163ad; text-decoration: underline; target=_blank>Rules & Regs</a>.<br><br>Who will win this match? At the start of play all unmatched bets will be cancelled and this market will be turned in-play. This market will not be actively managed therefore it is the responsibility of all users to manage their positions. <b><br><br>Customers should be aware that:<br><br> <li>Transmissions described as “live” by some broadcasters may actually be delayed and that all in-play matches are not necessarily televised.</li><br><li>The extent of any such delay may vary, depending on the set-up through which they are receiving pictures or data.</li><br><br></b><b><FONT COLOR='red'> If the first set is not completed all bets on this market will be void.</FONT></b><br><br>Please be aware that times may be subject to change.>Please be aware that times may be subject to change.",
+   "rulesHasDate": true,
+   "priceLadderDescription": {
+    "type": "CLASSIC"
+   }
+  },
+  "totalMatched": 0.0,
+  "runners": [
+   {
+    "selectionId": 25215583,
+    "runnerName": "Carlos Alcaraz",
+    "handicap": 0.0,
+    "sortPriority": 1
+   },
+   {
+    "selectionId": 10109527,
+    "runnerName": "Alex De Minaur",
+    "handicap": 0.0,
+    "sortPriority": 2
+   }
+  ],
+  "competition": {
+   "id": "11503872",
+   "name": "Laver Cup"
+  },
+  "event": {
+   "id": "36123491",
+   "name": "Carlos Alcaraz v Alex de Minaur",
+   "countryCode": "GB",
+   "timezone": "GMT",
+   "openDate": "2026-09-27T13:20:00.000Z"
+  }
+ },
+ {
+  "marketId": "1.262997528",
+  "marketName": "Match Odds",
+  "marketStartTime": "2026-09-27T14:30:00.000Z",
+  "description": {
+   "persistenceEnabled": true,
+   "bspMarket": false,
+   "marketTime": "2026-09-27T14:30:00.000Z",
+   "suspendTime": "2026-09-27T14:30:00.000Z",
+   "bettingType": "ODDS",
+   "turnInPlayEnabled": true,
+   "marketType": "MATCH_ODDS",
+   "regulator": "SPANISH GAMBLING AUTHORITY",
+   "marketBaseRate": 2.0,
+   "discountAllowed": false,
+   "wallet": "UK wallet",
+   "rules": "<b>Market Information</b><br>For further information please see <a href=http://www.betfair.es/en/conocenos/#reglas style=color:0163ad; text-decoration: underline; target=_blank>Rules & Regs</a>.<br><br>Who will win this match? At the start of play all unmatched bets will be cancelled and this market will be turned in-play. This market will not be actively managed therefore it is the responsibility of all users to manage their positions. <b><br><br>Customers should be aware that:<br><br> <li>Transmissions described as “live” by some broadcasters may actually be delayed and that all in-play matches are not necessarily televised.</li><br><li>The extent of any such delay may vary, depending on the set-up through which they are receiving pictures or data.</li><br><br></b><b><FONT COLOR='red'> If the first set is not completed all bets on this market will be void.</FONT></b><br><br>Please be aware that times may be subject to change.>Please be aware that times may be subject to change.",
+   "rulesHasDate": true,
+   "priceLadderDescription": {
+    "type": "CLASSIC"
+   }
+  },
+  "totalMatched": 0.0,
+  "runners": [
+   {
+    "selectionId": 51053591,
+    "runnerName": "Rafael Jodar",
+    "handicap": 0.0,
+    "sortPriority": 1
+   },
+   {
+    "selectionId": 10279360,
+    "runnerName": "Taylor Fritz",
+    "handicap": 0.0,
+    "sortPriority": 2
+   }
+  ],
+  "competition": {
+   "id": "11503872",
+   "name": "Laver Cup"
+  },
+  "event": {
+   "id": "36123489",
+   "name": "Rafael Jodar v Taylor Fritz",
+   "countryCode": "GB",
+   "timezone": "GMT",
+   "openDate": "2026-09-27T14:30:00.000Z"
+  }
+ }
+]

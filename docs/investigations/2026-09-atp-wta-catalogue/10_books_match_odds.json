@@ -1,0 +1,92 @@
+[
+ {
+  "marketId": "1.262997498",
+  "isMarketDataDelayed": true,
+  "status": "OPEN",
+  "betDelayModels": [],
+  "betDelay": 0,
+  "bspReconciled": false,
+  "complete": true,
+  "inplay": false,
+  "numberOfWinners": 1,
+  "numberOfRunners": 2,
+  "numberOfActiveRunners": 2,
+  "totalMatched": 0.0,
+  "totalAvailable": 0.0,
+  "crossMatching": false,
+  "runnersVoidable": false,
+  "version": 7653569553,
+  "runners": [
+   {
+    "selectionId": 19924823,
+    "handicap": 0.0,
+    "status": "ACTIVE"
+   },
+   {
+    "selectionId": 42082091,
+    "handicap": 0.0,
+    "status": "ACTIVE"
+   }
+  ]
+ },
+ {
+  "marketId": "1.262997506",
+  "isMarketDataDelayed": true,
+  "status": "OPEN",
+  "betDelayModels": [],
+  "betDelay": 0,
+  "bspReconciled": false,
+  "complete": true,
+  "inplay": false,
+  "numberOfWinners": 1,
+  "numberOfRunners": 2,
+  "numberOfActiveRunners": 2,
+  "totalMatched": 0.0,
+  "totalAvailable": 0.0,
+  "crossMatching": false,
+  "runnersVoidable": false,
+  "version": 7653569547,
+  "runners": [
+   {
+    "selectionId": 25215583,
+    "handicap": 0.0,
+    "status": "ACTIVE"
+   },
+   {
+    "selectionId": 10109527,
+    "handicap": 0.0,
+    "status": "ACTIVE"
+   }
+  ]
+ },
+ {
+  "marketId": "1.262997528",
+  "isMarketDataDelayed": true,
+  "status": "OPEN",
+  "betDelayModels": [],
+  "betDelay": 0,
+  "bspReconciled": false,
+  "complete": true,
+  "inplay": false,
+  "numberOfWinners": 1,
+  "numberOfRunners": 2,
+  "numberOfActiveRunners": 2,
+  "totalMatched": 0.0,
+  "totalAvailable": 0.0,
+  "crossMatching": false,
+  "runnersVoidable": false,
+  "version": 7653569551,
+  "runners": [
+   {
+    "selectionId": 51053591,
+    "handicap": 0.0,
+    "status": "ACTIVE"
+   },
+   {
+    "selectionId": 10279360,
+    "handicap": 0.0,
+    "status": "ACTIVE"
+   }
+  ]
+ }
+]

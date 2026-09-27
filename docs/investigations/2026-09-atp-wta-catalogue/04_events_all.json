@@ -1,0 +1,32 @@
+[
+ {
+  "event": {
+   "id": "36123491",
+   "name": "Carlos Alcaraz v Alex de Minaur",
+   "countryCode": "GB",
+   "timezone": "GMT",
+   "openDate": "2026-09-27T13:20:00.000Z"
+  },
+  "marketCount": 1
+ },
+ {
+  "event": {
+   "id": "36123490",
+   "name": "Alexander Zverev v Learner Tien",
+   "countryCode": "GB",
+   "timezone": "GMT",
+   "openDate": "2026-09-27T12:10:00.000Z"
+  },
+  "marketCount": 1
+ },
+ {
+  "event": {
+   "id": "36123489",
+   "name": "Rafael Jodar v Taylor Fritz",
+   "countryCode": "GB",
+   "timezone": "GMT",
+   "openDate": "2026-09-27T14:30:00.000Z"
+  },
+  "marketCount": 1
+ }
+]

@@ -14,9 +14,13 @@ PostgreSQL. **Solo lectura frente a Betfair.** No decide nada ni apuesta.
 |---|---|
 | Servicio | `edgecourt-collector.service`, `active (running)` desde el 2026-09-18 16:00:54 CEST |
 | Uptime en los últimos 7 días | 10.054 ciclos, 0 fallos, intervalo P50 60,13 s y P99 60,57 s |
-| Jurisdicción | `es` (login en el endpoint de identidad `.es`) |
-| Betting API | `https://api.betfair.com/exchange/betting/rest/v1.0`: la global, también con sesión `.es`. Verificado que funciona en `46fae68`; **no** verificado que devuelva el mismo catálogo que un endpoint específico |
-| Tipo de Application Key | **no verificado** (*delayed* o *live*) |
+| Jurisdicción | **Sesión española**, verificada: `BETFAIR_JURISDICTION = es`, login, `keepAlive` y `logout` en `identitysso.betfair.es`; los logs registran `"jurisdiction": "es"` |
+| Betting API | `https://api.betfair.com/exchange/betting/rest/v1.0`: la global, también con sesión `.es`. Verificado que funciona en `46fae68`. Sirve el catálogo que corresponde a la cuenta `.es` ([investigación 3.5-C](../investigations/2026-09-atp-wta-catalogue.md)) |
+| Application Key | **Verificado el 2026-09-27** con `getDeveloperAppKeys`, sin exponer la clave: la **Delayed** está **activa** (`delayData = true`) y la **Live**, **inactiva** |
+| Retraso de los datos | **Verificado:** los libros llegan con `isMarketDataDelayed = true`. Según la documentación oficial, la Delayed Key da «1-180 second snapshots» |
+| Volumen casado con la Delayed Key | Según la tabla oficial *Delay & Live Application Keys Overview*: por **mercado**, sí; por **selección**, no. Coincide con los datos: `runner_total_matched` siempre es 0 |
+| Duración de la sesión | **20 minutos en el Exchange español**, verificado en la documentación oficial (*Login & Session Management*) y coincidente con lo observado |
+| Catálogo | El catálogo `.es` observado es muy reducido (27-sep: solo Laver Cup en tenis). Que Betfair.es tenga oficialmente menos mercados que Betfair.com está **NO VERIFICADO oficialmente**: es una observación empírica ([3.5-C](../investigations/2026-09-atp-wta-catalogue.md)) |
 | Problemas abiertos | [Phase 3.5](../phases/PHASE_03_5_MARKET_VALIDATION.md): `keepAlive` (A), closing price (B), catálogo (C) |
 
 ## Ciclo
@@ -75,8 +79,9 @@ Se rediseña en Phase 3.5-B.
 - **Login** no interactivo por certificado, en el endpoint de identidad de la jurisdicción. Tanto
   `keepAlive` como `logout` van al mismo dominio.
 - **`KEEP_ALIVE_INTERVAL` = 1 h** y `SESSION_MAX_AGE` = 8 h (`market/auth.py`).
-  - **Observado:** la sesión caduca cada ~20 min. Aparece `INVALID_SESSION_INFORMATION`, el
-    cliente invalida la sesión y reintenta con un login nuevo **dentro de la misma llamada**.
+  - **Observado y confirmado oficialmente:** la sesión española caduca a los 20 min. Aparece
+    `INVALID_SESSION_INFORMATION`, el cliente invalida la sesión y reintenta con un login nuevo
+    **dentro de la misma llamada**.
   - Se recupera en el 100 % de los casos.
   - Phase 3.5-A.
 - **Reintentos:**

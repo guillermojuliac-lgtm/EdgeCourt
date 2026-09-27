@@ -20,7 +20,7 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 | ID | Decisión | Estado |
 |---|---|---|
 | [DEC-001](#dec-001) | Solo paper betting; sin ninguna vía de apuestas reales | Vigente |
-| [DEC-002](#dec-002) | Objetivo inicial: individuales ATP, pre-partido | Vigente (implícita) |
+| [DEC-002](#dec-002) | Objetivo inicial: individuales ATP, pre-partido | Vigente (implícita) · **en revisión** desde 3.5-C |
 | [DEC-003](#dec-003) | El proyecto intenta refutar la hipótesis; criterio de éxito fijado de antemano | Vigente |
 | [DEC-004](#dec-004) | PostgreSQL como fuente de verdad operativa | Vigente |
 | [DEC-005](#dec-005) | Parquet (+ DuckDB) para histórico y ML; Parquet de Betfair solo por exportación | Vigente |
@@ -84,6 +84,11 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
   - El emparejamiento de jugadores (PHASE 8b) solo tiene sentido para ese subconjunto.
 - **Revisar si:** Phase 3.5-C concluye que los mercados ATP regulares no están disponibles, o que
   su calidad no permite evaluar el modelo.
+- **Revisión activada (2026-09-27):** la
+  [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md) muestra que el catálogo
+  que Betfair sirve a la cuenta `.es` no incluyó ningún ATP regular en 9 días, ni en el snapshot
+  del 27-sep. La decisión **sigue vigente** hasta que el responsable del proyecto decida sobre la
+  fuente de mercado (ver «Decisiones pendientes»).
 - **Fuente:** `docs/DATA.md` (resultado de la ingesta), `src/edgecourt/data/sources.py`,
   `src/edgecourt/market/cadence.py` (`plan_captures`), commit `ed7cb77`.
 
@@ -431,14 +436,14 @@ asigna un DEC.
 |---|---|
 | **Sin Redis** | No aparece en el código, en `pyproject.toml` ni en la documentación |
 | **Sin Docker para EdgeCourt** | No hay Dockerfile ni compose. PostgreSQL corre nativo (`postgresql.service`, en un puerto no estándar porque el 5432 lo ocupaba otro PostgreSQL en contenedor, según el commit `7eea268`) |
-| Tipo de Application Key en uso (*delayed* o *live*) | **No verificado.** La documentación recomienda empezar con la *delayed*. Afecta a la fiabilidad del CLV |
+| Tipo de Application Key en uso | **Verificado el 2026-09-27: Delayed** (`delayData = true`, activa; la Live está inactiva). Tampoco hay decisión documentada sobre su uso a largo plazo. Según Betfair, la Live Key no admite uso de solo lectura ([investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md) §10) |
 
 ## Decisiones pendientes
 
 | Tema | Dónde |
 |---|---|
-| Definición de closing price | Phase 3.5-B |
-| Qué mercados son el objetivo realista (ATP regular, otros, viabilidad) | Phase 3.5-C |
+| **Fuente de mercado y alcance realista** con la cuenta `.es` (viabilidad de [DEC-002](#dec-002)) | Surge de la [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md). La decide el responsable del proyecto |
+| Definición de closing price (prioridad supeditada a la anterior) | Phase 3.5-B |
 | Intervalo de `keepAlive` | Phase 3.5-A |
 | Uno o dos procesos de larga duración (D9) | `docs/ARCHITECTURE.md`, PHASE 15 del plan |
 | Método de desvigado y convención de signo del CLV | `docs/METRICS.md` (se fijará en la fase de Value/CLV) |

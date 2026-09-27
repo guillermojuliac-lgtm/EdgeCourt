@@ -1,0 +1,113 @@
+{
+ "queried_at": "2026-09-27T07:22:03.574625+00:00",
+ "jurisdiction": "es",
+ "event_types": [
+  [
+   "Soccer",
+   "1",
+   2995
+  ],
+  [
+   "Tennis",
+   "2",
+   3
+  ]
+ ],
+ "competitions_all": [
+  [
+   "Laver Cup",
+   "11503872",
+   "International",
+   3
+  ]
+ ],
+ "competitions_match_odds": [
+  [
+   "Laver Cup",
+   3
+  ]
+ ],
+ "events_all_count": 3,
+ "market_types": [
+  [
+   "MATCH_ODDS",
+   3
+  ]
+ ],
+ "broad_count": 3,
+ "broad_by_competition": [
+  [
+   "Laver Cup",
+   3
+  ]
+ ],
+ "broad_by_market_type": [
+  [
+   "MATCH_ODDS",
+   3
+  ]
+ ],
+ "match_odds_all_count": 3,
+ "match_odds_by_competition": [
+  [
+   "Laver Cup",
+   3
+  ]
+ ],
+ "edgecourt_count": 3,
+ "edgecourt_by_competition": [
+  [
+   "Laver Cup",
+   3
+  ]
+ ],
+ "past12h_count": 0,
+ "past12h_by_competition": [],
+ "match_odds_detail": [
+  {
+   "marketId": "1.262997498",
+   "competition": "Laver Cup",
+   "event": "Alexander Zverev v Learner Tien",
+   "countryCode": "GB",
+   "marketStartTime": "2026-09-27T12:10:00.000Z",
+   "runners": [
+    "Alexander Zverev",
+    "Learner Tien"
+   ],
+   "status": "OPEN",
+   "inplay": false,
+   "totalMatched": 0.0,
+   "in_edgecourt_window": true
+  },
+  {
+   "marketId": "1.262997506",
+   "competition": "Laver Cup",
+   "event": "Carlos Alcaraz v Alex de Minaur",
+   "countryCode": "GB",
+   "marketStartTime": "2026-09-27T13:20:00.000Z",
+   "runners": [
+    "Carlos Alcaraz",
+    "Alex De Minaur"
+   ],
+   "status": "OPEN",
+   "inplay": false,
+   "totalMatched": 0.0,
+   "in_edgecourt_window": true
+  },
+  {
+   "marketId": "1.262997528",
+   "competition": "Laver Cup",
+   "event": "Rafael Jodar v Taylor Fritz",
+   "countryCode": "GB",
+   "marketStartTime": "2026-09-27T14:30:00.000Z",
+   "runners": [
+    "Rafael Jodar",
+    "Taylor Fritz"
+   ],
+   "status": "OPEN",
+   "inplay": false,
+   "totalMatched": 0.0,
+   "in_edgecourt_window": true
+  }
+ ]
+}

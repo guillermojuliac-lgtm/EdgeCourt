@@ -95,25 +95,28 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 | Mercado | `top_depth` (mediana) | **~67 €** | ídem |
 | Mercado | `close` a > 5 min del último inicio publicado | **45 / 58** | ídem |
 | Mercado | competiciones en la muestra | Davis Cup, BJK Cup y Laver Cup. **Ningún torneo ATP ni WTA regular** | ídem |
+| Catálogo | exchange visible para la cuenta `.es` (27-sep, 07:22 UTC) | 2 disciplinas (Soccer 2.995, Tennis **3**). Tenis = solo Laver Cup. betfair.com mostraba además ATP 250, WTA 500/250 y Challengers | [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md) |
+| Datos | Application Key | **Delayed** (`delayData = true`); libros con `isMarketDataDelayed = true` (retraso de 1–180 s) | ídem |
 
 ## Próximos pasos
 
-1. **Phase 3.5-C:** investigar la ausencia de torneos ATP/WTA regulares, sin asumir la causa.
-2. **Phase 3.5-B:** diseñar la definición de closing price, primero en un documento y después en
-   código.
-3. **Phase 3.5-A:** corregir el intervalo de `keepAlive`.
-4. **Phase 3.5-D:** mantener la recolección y hacer una nueva auditoría cuando haya muestra de
-   torneos regulares.
+1. **Decisión del responsable del proyecto sobre la fuente de mercado y el alcance realista.**
+   La investigación 3.5-C (completada) indica que el catálogo `.es` no ofreció ATP regular en la
+   muestra.
+2. **Phase 3.5-D:** mantener la recolección y observar el catálogo `.es` en semanas ATP 500/1000
+   (Pekín y Tokio desde el 30-sep, Shanghái desde el 7-oct), con snapshots de solo lectura.
+3. **Phase 3.5-A:** corregir el intervalo de `keepAlive`. La duración de 20 min ya está confirmada
+   oficialmente.
+4. **Phase 3.5-B:** closing price, **con la prioridad supeditada al punto 1**.
 
 ## Decisiones abiertas
 
+- **Fuente de mercado y alcance realista.** Con la cuenta `.es`, ¿es viable el objetivo ATP
+  prematch ([DEC-002](DECISIONS.md#dec-002))? Es la decisión que condiciona todo lo demás.
 - Definición de closing price (3.5-B).
-- Qué mercados son el objetivo realista y si el objetivo inicial ATP es viable con esta cuenta
-  (3.5-C, [DEC-002](DECISIONS.md#dec-002)).
 - Intervalo de `keepAlive` (3.5-A).
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).
 - Uno o dos procesos de larga duración (D9).
-- Tipo de Application Key (*delayed* o *live*): no verificado, y relevante para el CLV.
 
 ## Problemas conocidos
 
@@ -126,6 +129,14 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 - El collector captura también WTA y dobles, que el modelo no predice: solo 33 de 62 mercados
   eran individuales masculinos.
 - `betfair_runner.player_id` está vacío: Phase 8b pendiente.
+- **Catálogo `.es` restringido** (investigación 3.5-C). En 9 días la API nunca devolvió ATP ni WTA
+  regular, ni Challengers. EdgeCourt no pierde mercados: la restricción viene de la fuente.
+- **Datos retrasados** (Delayed Key, 1–180 s). Con esta clave, `totalMatched` está disponible
+  **por mercado** y **no por selección**, según la tabla oficial *Delay & Live Application Keys
+  Overview*; los datos son coherentes con ello. Además, la Live Key no admite uso de solo lectura,
+  según Betfair.
+- `edgecourt collector health` etiqueta como «UTC» la hora local. Defecto de presentación, sin
+  corregir.
 
 **Seguridad**
 - El commit `7eea268` indica que la contraseña de la base de tests quedó expuesta en un
@@ -159,11 +170,16 @@ Se mantienen explícitamente como no verificados hasta que haya evidencia:
 
 | Punto | Estado |
 |---|---|
-| Tipo de Application Key en uso (*delayed* o *live*) | **No verificado** |
 | Rotación de la contraseña de la base de tests expuesta (commit `7eea268`) | **No verificado** |
 | Motivo histórico de no usar Redis ni Docker | **No verificado.** Solo consta la ausencia; ningún documento explica el porqué |
 | «ATP prematch» como objetivo inicial | **No verificado como decisión explícita.** Estaba originalmente implícita en el código ([DEC-002](DECISIONS.md#dec-002)) |
-| Causa de la ausencia de torneos ATP/WTA regulares en la muestra | **No verificado.** Pendiente de Phase 3.5-C; no se asume ninguna hipótesis |
+| Que la documentación oficial de Betfair reconozca un catálogo `.es` reducido | **No verificado.** La restricción se ha observado empíricamente, pero ninguna página oficial consultada la afirma |
+| Cómo es el catálogo `.es` en otras semanas (Grand Slams, Masters) | **No verificado.** Solo hay 9 días de histórico y un snapshot |
+
+Resueltos el 2026-09-27 (investigación 3.5-C):
+- **Tipo de Application Key: verificado, Delayed.**
+- **Causa de la ausencia de ATP/WTA regulares:** combinación de calendario, en parte, y
+  restricción del catálogo `.es`, **con evidencia empírica fuerte pero sin confirmación oficial**.
 
 **No conservado**
 - Los resultados de la **primera parte** de la Auditoría Semana 1 no están en el repositorio.
