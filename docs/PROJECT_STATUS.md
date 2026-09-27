@@ -50,7 +50,7 @@ Roadmap completo en [`ROADMAP.md`](ROADMAP.md).
 | Betfair | `httpx` directo, login por certificado, jurisdicción `es` ([DEC-009](DECISIONS.md#dec-009)) |
 | Configuración | `pydantic-settings` y `.env` (nunca versionado) |
 | Operación | systemd (`edgecourt-collector.service`) |
-| Calidad | pytest (457 tests: 143 críticos y 35 de integración), ruff |
+| Calidad | pytest (472 tests: 151 críticos y 35 de integración), ruff |
 | Ausentes | Redis y Docker (ver DECISIONS, «Hechos verificados sin decisión documentada») |
 
 ## Arquitectura
@@ -73,8 +73,12 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 
 ## Collector
 
-- **Estado:** en operación desde el 2026-09-18 a las 16:00 CEST, sin reinicios.
-  Detalle en [`architecture/BETFAIR_COLLECTOR.md`](architecture/BETFAIR_COLLECTOR.md).
+- **Estado:** en operación desde el 2026-09-18.
+  - Reinicio controlado el 2026-09-27 a las 07:59:59 UTC para cargar el keepAlive de 3.5-A.
+  - Sin fallos desde entonces.
+  - Detalle en [`architecture/BETFAIR_COLLECTOR.md`](architecture/BETFAIR_COLLECTOR.md).
+- **Sesión:** keepAlive preventivo cada 15 min (sesión `.es` de 20 min). Verificado en producción
+  ([validación](audits/2026-09-session-keepalive-validation.md)).
 - **Captura:** híbrida, con hitos y cadencia adaptive ([DEC-006](DECISIONS.md#dec-006)). Las
   observaciones sin precio se guardan igualmente ([DEC-007](DECISIONS.md#dec-007)).
 - **`MINIMUM_LIQUIDITY` = 50**, sin cambios ([DEC-012](DECISIONS.md#dec-012)).
@@ -105,8 +109,8 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
    muestra.
 2. **Phase 3.5-D:** mantener la recolección y observar el catálogo `.es` en semanas ATP 500/1000
    (Pekín y Tokio desde el 30-sep, Shanghái desde el 7-oct), con snapshots de solo lectura.
-3. **Phase 3.5-A:** corregir el intervalo de `keepAlive`. La duración de 20 min ya está confirmada
-   oficialmente.
+3. **Phase 3.5-A:** implementada y verificada. Solo queda confirmar en el journal que pasan 24 h
+   sin `INVALID_SESSION_INFORMATION` (desde el 2026-09-27 08:00 UTC).
 4. **Phase 3.5-B:** closing price, **con la prioridad supeditada al punto 1**.
 
 ## Decisiones abiertas
@@ -114,7 +118,6 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 - **Fuente de mercado y alcance realista.** Con la cuenta `.es`, ¿es viable el objetivo ATP
   prematch ([DEC-002](DECISIONS.md#dec-002))? Es la decisión que condiciona todo lo demás.
 - Definición de closing price (3.5-B).
-- Intervalo de `keepAlive` (3.5-A).
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).
 - Uno o dos procesos de larga duración (D9).
 
@@ -123,7 +126,6 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 **Datos y operación**
 - `close` no es un precio de cierre fiable, porque `market_start_time` se retrasa: 45 de 58
   casos. Crítico para el CLV (3.5-B).
-- La sesión caduca cada ~20 min con `keepAlive` a 1 h. Se recupera sola (3.5-A).
 - Calidad de mercado muy baja y muestra atípica. **No** se han convertido las cifras en reglas
   todavía.
 - El collector captura también WTA y dobles, que el modelo no predice: solo 33 de 62 mercados

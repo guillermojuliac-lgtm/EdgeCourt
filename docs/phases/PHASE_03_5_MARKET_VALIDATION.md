@@ -48,11 +48,24 @@ distinguir de artefactos de captura.
    20 minutes on the Italian & Spanish Exchange» (*Login & Session Management*, citado en la
    [investigación 3.5-C](../investigations/2026-09-atp-wta-catalogue.md) §10). Coincide con lo
    observado.
-2. Decidir el intervalo de `keepAlive`: por debajo de la duración de la sesión y con margen.
-3. Test de regresión: con una sesión de duración X, el `keepAlive` se ejecuta antes de X.
-4. Verificar en producción que `INVALID_SESSION_INFORMATION` desaparece o se vuelve excepcional.
+2. ~~Decidir el intervalo de `keepAlive`.~~ **Hecho:** 15 min para `es` e `it`
+   (`keep_alive_interval()` en `auth.py`); el resto de jurisdicciones sigue en 1 h.
+3. ~~Test de regresión.~~ **Hecho:** 14 tests en `tests/test_betfair_keepalive.py` y 1 en
+   `tests/test_betfair_collector.py`. Suite: 472 passed (151 críticos).
+4. **Verificado en producción el 2026-09-27:**
+   - servicio reiniciado a las 07:59:59 UTC;
+   - keepAlive real aceptado a las 08:15:02;
+   - 0 `INVALID_SESSION_INFORMATION` en los 22 min siguientes.
+
+   Una sonda independiente confirmó que la sesión sigue válida a los minutos 21 y 24 sin
+   reautenticar.
+
+> **Estado (2026-09-27): implementado y verificado.** Solo queda el seguimiento de 24 h del
+> criterio de «hecho». Detalle en la
+> [validación](../audits/2026-09-session-keepalive-validation.md).
 
 **Hecho cuando:** 24 h sin reautenticaciones forzadas, o con una causa distinta documentada.
+*Pendiente de cumplirse:* 24 h desde el 2026-09-27 08:00 UTC.
 
 **Riesgo:** bajo. Es un cambio acotado en `auth.py`.
 
@@ -183,6 +196,7 @@ definición fiable de closing price, **antes** de basar Value o CLV en estos dat
 | 2026-09-27 | Auditoría Semana 1 (2.ª parte) completada; se abre la fase | [auditoría](../audits/2026-09-week1-market-audit.md) |
 | 2026-09-27 | Estructura de memoria persistente del proyecto (`docs/`) | [CHANGELOG_TECHNICAL](../CHANGELOG_TECHNICAL.md) |
 | 2026-09-27 | 3.5-C investigada: conclusión F (calendario en parte + jurisdicción `.es` con evidencia empírica). Duración de sesión de 20 min confirmada oficialmente (3.5-A). Clave Delayed verificada | [investigación](../investigations/2026-09-atp-wta-catalogue.md) |
+| 2026-09-27 | 3.5-A implementada: keepAlive cada 15 min en `es`/`it`, manejo de respuestas no JSON y log de renovación. Servicio reiniciado; keepAlive real aceptado a las 08:15:02 UTC, sin caducidades | [validación](../audits/2026-09-session-keepalive-validation.md) |
 
 ## Pendiente de decisión (surgida de 3.5-C)
 

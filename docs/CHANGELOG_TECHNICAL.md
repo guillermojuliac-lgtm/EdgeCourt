@@ -8,6 +8,28 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-09-27 — Phase 3.5-A: keepAlive preventivo de la sesión española
+
+- **Cambio** (`src/edgecourt/market/auth.py`):
+  - intervalo de keepAlive por jurisdicción, **15 min para `es`/`it`** (el resto sigue en 1 h);
+  - caducidad documentada de 20 min en una constante con cita oficial;
+  - una respuesta de keepAlive que no es JSON se trata como fallo controlado;
+  - log `INFO` al renovar la sesión, sin token.
+- **Motivo:** la sesión `.es` caduca a los 20 min (documentación oficial) y el keepAlive estaba a
+  1 h. Resultado: `INVALID_SESSION_INFORMATION` y reautenticación cada ~20 min (~72 al día).
+- **Resultado:**
+  - Betfair acepta el keepAlive y extiende la sesión: una sonda confirmó la sesión válida a los
+    21 y 24 min sin reautenticar.
+  - Servicio reiniciado de forma controlada a las 07:59:59 UTC; keepAlive real a las 08:15:02 y
+    0 caducidades en los 22 min siguientes.
+  - La reautenticación se mantiene como segunda barrera.
+- **Tests:** +15 (14 en `test_betfair_keepalive.py` y 1 en `test_betfair_collector.py`). Suite:
+  **472 passed** (151 críticos). `ruff` limpio. Barrera de solo lectura en verde.
+- **Commit:** pendiente.
+- **Docs:** [validación](audits/2026-09-session-keepalive-validation.md),
+  [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md),
+  [BETFAIR_COLLECTOR](architecture/BETFAIR_COLLECTOR.md).
+
 ## 2026-09-27 — Investigación 3.5-C: catálogo ATP/WTA de Betfair
 
 - **Cambio:** ninguno en código, datos ni configuración. Investigación de solo lectura:
@@ -24,7 +46,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   - Sesión de 20 min en `.es` confirmada oficialmente.
   - `DEC-002` entra en revisión.
 - **Tests:** no proceden. Collector `active`, `collector health` OK.
-- **Commit:** pendiente.
+- **Commit:** `54f2e94`.
 - **Docs:** [investigación](investigations/2026-09-atp-wta-catalogue.md),
   [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
 

@@ -66,10 +66,36 @@ def identity_url(operation: str, jurisdiction: str = "com") -> str:
     return f"https://identitysso.betfair.{jurisdiction}/api/{operation}"
 
 
-# Betfair invalida la sesion tras 4 horas de inactividad para la API de apuestas.
-# Se renueva con bastante antelacion para no depender de la frontera exacta.
+# Intervalo de keepAlive por defecto, para jurisdicciones con sesiones largas.
+# En el exchange internacional (.com) la sesion caduca a las 12 h (24 h para
+# Reino Unido e Irlanda), asi que una hora deja un margen muy amplio.
 KEEP_ALIVE_INTERVAL = timedelta(hours=1)
 SESSION_MAX_AGE = timedelta(hours=8)
+
+# Caducidad de sesion documentada por Betfair para los exchanges segregados:
+# "The session expiry time is currently 20 minutes on the Italian & Spanish
+# Exchange" (Login & Session Management). Con KEEP_ALIVE_INTERVAL de 1 h, la
+# sesion espanola caducaba siempre antes del keepAlive y cada 20 minutos habia
+# que reautenticar tras un INVALID_SESSION_INFORMATION.
+SESSION_TIMEOUT_BY_JURISDICTION: dict[str, timedelta] = {
+    "es": timedelta(minutes=20),
+    "it": timedelta(minutes=20),
+}
+
+# 15 minutos: el keepAlive se comprueba al inicio de cada llamada a la API (una
+# por ciclo, ~60 s), asi que se envia como tarde hacia el minuto 16. Quedan unos
+# 4 minutos de margen para absorber un par de ciclos lentos o fallidos sin
+# duplicar las llamadas, como haria un intervalo de 10 minutos.
+KEEP_ALIVE_INTERVAL_BY_JURISDICTION: dict[str, timedelta] = {
+    "es": timedelta(minutes=15),
+    "it": timedelta(minutes=15),
+}
+
+
+def keep_alive_interval(jurisdiction: str) -> timedelta:
+    """Cada cuanto renovar la sesion de la jurisdiccion indicada."""
+    return KEEP_ALIVE_INTERVAL_BY_JURISDICTION.get(jurisdiction, KEEP_ALIVE_INTERVAL)
+
 
 REQUEST_TIMEOUT_SECONDS = 30.0
 
@@ -98,7 +124,8 @@ class Session:
 
     @property
     def needs_keep_alive(self) -> bool:
-        return datetime.now(UTC) - self.last_keep_alive >= KEEP_ALIVE_INTERVAL
+        elapsed = datetime.now(UTC) - self.last_keep_alive
+        return elapsed >= keep_alive_interval(self.jurisdiction)
 
     @property
     def is_expired(self) -> bool:
@@ -227,12 +254,22 @@ def keep_alive(session: Session, *, client: httpx.Client) -> bool:
     except httpx.HTTPError as exc:
         log.warning("keep-alive fallido", extra={"error": str(exc)})
         return False
+    except ValueError:
+        # Una respuesta que no es JSON (p. ej. una pagina de error de un proxy)
+        # no puede tumbar el ciclo: se trata como un keepAlive fallido y la
+        # reautenticacion hace de segunda barrera.
+        log.warning("keep-alive con respuesta no JSON", extra={"http_status": response.status_code})
+        return False
 
-    if payload.get("status") != "SUCCESS":
-        log.warning("keep-alive rechazado", extra={"status": payload.get("status")})
+    if not isinstance(payload, dict) or payload.get("status") != "SUCCESS":
+        status = payload.get("status") if isinstance(payload, dict) else None
+        log.warning("keep-alive rechazado", extra={"status": status})
         return False
 
     session.last_keep_alive = datetime.now(UTC)
+    # Solo el estado y la jurisdiccion: la respuesta incluye el token y nunca se
+    # registra.
+    log.info("sesion renovada (keepAlive)", extra={"jurisdiction": session.jurisdiction})
     return True
 
 

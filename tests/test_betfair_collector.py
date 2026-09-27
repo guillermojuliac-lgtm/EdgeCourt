@@ -250,6 +250,25 @@ def test_a_failing_cycle_does_not_kill_the_process(collector_settings):
 
 
 @pytest.mark.critical
+def test_session_renewal_failure_does_not_kill_the_process(collector_settings):
+    """Phase 3.5-A: si keepAlive y reautenticacion fallan, el collector sigue vivo.
+
+    Un fallo de sesion es temporal (red, identidad de Betfair caida): a
+    diferencia de MissingCredentialsError, no debe abortar el proceso.
+    """
+    from edgecourt.market.auth import AuthenticationError
+
+    client = _FakeClient([], fail_with=AuthenticationError("keepAlive y login fallidos"))
+    collector = _collector(collector_settings, client)
+    collector._stop.wait = lambda _s: None
+
+    cycles = collector.run(max_cycles=3)
+
+    assert cycles == 3
+    assert client.catalogue_calls == 3
+
+
+@pytest.mark.critical
 def test_a_failed_cycle_rolls_back_the_connection(collector_settings):
     """Una transaccion a medias no puede envenenar el ciclo siguiente."""
     connection = _FakeConnection()

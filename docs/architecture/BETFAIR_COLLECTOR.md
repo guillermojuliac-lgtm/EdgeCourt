@@ -12,16 +12,16 @@ PostgreSQL. **Solo lectura frente a Betfair.** No decide nada ni apuesta.
 
 | | |
 |---|---|
-| Servicio | `edgecourt-collector.service`, `active (running)` desde el 2026-09-18 16:00:54 CEST |
+| Servicio | `edgecourt-collector.service`, en operación desde el 2026-09-18. Reinicio controlado el 2026-09-27 a las 07:59:59 UTC para cargar el keepAlive de 3.5-A |
 | Uptime en los últimos 7 días | 10.054 ciclos, 0 fallos, intervalo P50 60,13 s y P99 60,57 s |
 | Jurisdicción | **Sesión española**, verificada: `BETFAIR_JURISDICTION = es`, login, `keepAlive` y `logout` en `identitysso.betfair.es`; los logs registran `"jurisdiction": "es"` |
 | Betting API | `https://api.betfair.com/exchange/betting/rest/v1.0`: la global, también con sesión `.es`. Verificado que funciona en `46fae68`. Sirve el catálogo que corresponde a la cuenta `.es` ([investigación 3.5-C](../investigations/2026-09-atp-wta-catalogue.md)) |
 | Application Key | **Verificado el 2026-09-27** con `getDeveloperAppKeys`, sin exponer la clave: la **Delayed** está **activa** (`delayData = true`) y la **Live**, **inactiva** |
 | Retraso de los datos | **Verificado:** los libros llegan con `isMarketDataDelayed = true`. Según la documentación oficial, la Delayed Key da «1-180 second snapshots» |
 | Volumen casado con la Delayed Key | Según la tabla oficial *Delay & Live Application Keys Overview*: por **mercado**, sí; por **selección**, no. Coincide con los datos: `runner_total_matched` siempre es 0 |
-| Duración de la sesión | **20 minutos en el Exchange español**, verificado en la documentación oficial (*Login & Session Management*) y coincidente con lo observado |
+| Duración de la sesión | **20 minutos en el Exchange español**, verificado en la documentación oficial (*Login & Session Management*) y coincidente con lo observado. Se renueva con keepAlive cada 15 min |
 | Catálogo | El catálogo `.es` observado es muy reducido (27-sep: solo Laver Cup en tenis). Que Betfair.es tenga oficialmente menos mercados que Betfair.com está **NO VERIFICADO oficialmente**: es una observación empírica ([3.5-C](../investigations/2026-09-atp-wta-catalogue.md)) |
-| Problemas abiertos | [Phase 3.5](../phases/PHASE_03_5_MARKET_VALIDATION.md): `keepAlive` (A), closing price (B), catálogo (C) |
+| Problemas abiertos | [Phase 3.5](../phases/PHASE_03_5_MARKET_VALIDATION.md): closing price (B) y catálogo `.es` (C, decisión pendiente). El `keepAlive` (A) está resuelto, con seguimiento de 24 h |
 
 ## Ciclo
 
@@ -78,12 +78,24 @@ Se rediseña en Phase 3.5-B.
 
 - **Login** no interactivo por certificado, en el endpoint de identidad de la jurisdicción. Tanto
   `keepAlive` como `logout` van al mismo dominio.
-- **`KEEP_ALIVE_INTERVAL` = 1 h** y `SESSION_MAX_AGE` = 8 h (`market/auth.py`).
-  - **Observado y confirmado oficialmente:** la sesión española caduca a los 20 min. Aparece
-    `INVALID_SESSION_INFORMATION`, el cliente invalida la sesión y reintenta con un login nuevo
-    **dentro de la misma llamada**.
-  - Se recupera en el 100 % de los casos.
-  - Phase 3.5-A.
+- **keepAlive preventivo** (`market/auth.py`, Phase 3.5-A, desde el 2026-09-27):
+  - `keep_alive_interval(jurisdiction)` da **15 min para `es` e `it`**, cuyas sesiones caducan a
+    los 20 min según la documentación oficial (`SESSION_TIMEOUT_BY_JURISDICTION`). Las demás
+    jurisdicciones siguen en `KEEP_ALIVE_INTERVAL` = 1 h. `SESSION_MAX_AGE` = 8 h, sin cambios.
+  - Se evalúa al inicio de cada llamada a la API (~1 por ciclo): no se envía en cada ciclo, sino
+    ~4 veces por hora.
+  - Un keepAlive correcto registra `INFO "sesion renovada (keepAlive)"`, solo con la
+    jurisdicción; el token nunca se registra.
+  - Si falla (red, `status` ≠ `SUCCESS` o respuesta no JSON), se reautentica. Un fallo de
+    keepAlive y de login a la vez es un error recuperable: el ciclo falla, el collector sigue y
+    el siguiente ciclo reintenta.
+  - **Verificado en producción:** keepAlive real aceptado el 2026-09-27 a las 08:15:02 UTC y
+    ninguna caducidad al pasar el minuto 20
+    ([validación](../audits/2026-09-session-keepalive-validation.md)).
+- **Segunda barrera, sin cambios:** si una llamada devuelve `INVALID_SESSION_INFORMATION`, el
+  cliente invalida la sesión y reintenta con un login nuevo **dentro de la misma llamada**. Antes
+  de 3.5-A ocurría cada ~20 min (se recuperaba en el 100 % de los casos). Ahora debería ser
+  excepcional.
 - **Reintentos:**
   - backoff exponencial ante errores de red, `TOO_MANY_REQUESTS` y errores 5xx;
   - `INVALID_INPUT_DATA` aborta;
