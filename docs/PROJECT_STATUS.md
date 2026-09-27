@@ -109,8 +109,9 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
    muestra.
 2. **Phase 3.5-D:** mantener la recolección y observar el catálogo `.es` en semanas ATP 500/1000
    (Pekín y Tokio desde el 30-sep, Shanghái desde el 7-oct), con snapshots de solo lectura.
-3. **Phase 3.5-A:** implementada y verificada. Solo queda confirmar en el journal que pasan 24 h
-   sin `INVALID_SESSION_INFORMATION` (desde el 2026-09-27 08:00 UTC).
+3. **Phase 3.5-A: VALIDATING** (implementada, validada contra Betfair real y en producción).
+   Falta la validación final de 24 h: del **2026-09-27 08:00 UTC** al **2026-09-28 08:00 UTC**,
+   sin `INVALID_SESSION_INFORMATION` por expiración normal de la sesión. No está DONE.
 4. **Phase 3.5-B:** closing price, **con la prioridad supeditada al punto 1**.
 
 ## Decisiones abiertas

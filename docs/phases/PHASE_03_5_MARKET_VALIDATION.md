@@ -60,12 +60,24 @@ distinguir de artefactos de captura.
    Una sonda independiente confirmó que la sesión sigue válida a los minutos 21 y 24 sin
    reautenticar.
 
-> **Estado (2026-09-27): implementado y verificado.** Solo queda el seguimiento de 24 h del
-> criterio de «hecho». Detalle en la
-> [validación](../audits/2026-09-session-keepalive-validation.md).
+> **Estado de 3.5-A: VALIDATING** (aprobada técnicamente el 2026-09-27; **no** está DONE)
+>
+> | Campo | Valor |
+> |---|---|
+> | IMPLEMENTED | sí (commit `6751047`) |
+> | REAL BETFAIR VALIDATION | sí (keepAlive aceptado; sesión válida a los 21 y 24 min sin reautenticar) |
+> | PRODUCTION | sí (servicio reiniciado a las 07:59:59 UTC; keepAlive real a las 08:15:02 UTC) |
+> | FINAL 24H VALIDATION | **pendiente** |
+> | STATUS | **VALIDATING** |
+>
+> **Criterio final:** 24 horas, desde el **2026-09-27 08:00 UTC** hasta el **2026-09-28 08:00
+> UTC**, sin `INVALID_SESSION_INFORMATION` atribuible a la expiración normal de la sesión.
+> Mientras transcurre la ventana se puede seguir trabajando.
+>
+> Detalle en la [validación](../audits/2026-09-session-keepalive-validation.md).
 
-**Hecho cuando:** 24 h sin reautenticaciones forzadas, o con una causa distinta documentada.
-*Pendiente de cumplirse:* 24 h desde el 2026-09-27 08:00 UTC.
+**Hecho cuando:** se cumple el criterio final de arriba (24 h sin reautenticaciones forzadas por
+expiración normal), o con una causa distinta documentada.
 
 **Riesgo:** bajo. Es un cambio acotado en `auth.py`.
 

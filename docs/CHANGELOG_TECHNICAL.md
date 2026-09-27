@@ -25,7 +25,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   - La reautenticación se mantiene como segunda barrera.
 - **Tests:** +15 (14 en `test_betfair_keepalive.py` y 1 en `test_betfair_collector.py`). Suite:
   **472 passed** (151 críticos). `ruff` limpio. Barrera de solo lectura en verde.
-- **Commit:** pendiente.
+- **Commit:** `6751047`. Estado: **VALIDATING** hasta completar 24 h de producción (2026-09-28 08:00 UTC).
 - **Docs:** [validación](audits/2026-09-session-keepalive-validation.md),
   [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md),
   [BETFAIR_COLLECTOR](architecture/BETFAIR_COLLECTOR.md).

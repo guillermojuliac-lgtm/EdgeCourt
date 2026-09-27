@@ -73,7 +73,8 @@ El collector (8) se adelantó el 2026-09-18 porque cada semana sin recolectar es
   [`architecture/POSTGRESQL.md`](architecture/POSTGRESQL.md).
 - **Defectos conocidos**, derivados a la Phase 3.5:
   - `close` no es un cierre fiable (3.5-B);
-  - el `keepAlive` es insuficiente (3.5-A).
+  - el `keepAlive` era insuficiente (3.5-A: corregido en `6751047`, en estado **VALIDATING**
+    hasta el 2026-09-28 08:00 UTC).
 
 ---
 
