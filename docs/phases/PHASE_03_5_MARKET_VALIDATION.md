@@ -60,24 +60,31 @@ distinguir de artefactos de captura.
    Una sonda independiente confirmó que la sesión sigue válida a los minutos 21 y 24 sin
    reautenticar.
 
-> **Estado de 3.5-A: VALIDATING** (aprobada técnicamente el 2026-09-27; **no** está DONE)
+> **Estado de 3.5-A: DONE** (cerrada el 2026-09-30 con la validación de 24 h cumplida)
 >
 > | Campo | Valor |
 > |---|---|
-> | IMPLEMENTED | sí (commit `6751047`) |
+> | IMPLEMENTED | sí (commit `6751047`; cierre documental `02189b2`) |
 > | REAL BETFAIR VALIDATION | sí (keepAlive aceptado; sesión válida a los 21 y 24 min sin reautenticar) |
-> | PRODUCTION | sí (servicio reiniciado a las 07:59:59 UTC; keepAlive real a las 08:15:02 UTC) |
-> | FINAL 24H VALIDATION | **pendiente** |
-> | STATUS | **VALIDATING** |
+> | PRODUCTION | sí (servicio reiniciado el 27-sep a las 07:59:59 UTC; primer keepAlive real a las 08:15:02 UTC) |
+> | FINAL 24H VALIDATION | **superada**: ventana del 27-sep 08:00 al 28-sep 08:00 UTC, verificada con el journal el 30-sep |
+> | STATUS | **DONE** |
 >
-> **Criterio final:** 24 horas, desde el **2026-09-27 08:00 UTC** hasta el **2026-09-28 08:00
-> UTC**, sin `INVALID_SESSION_INFORMATION` atribuible a la expiración normal de la sesión.
-> Mientras transcurre la ventana se puede seguir trabajando.
+> **Evidencia** (journal del 27-sep 08:00 UTC al 30-sep ~05:16 UTC, unas 69 h, más de 24 h):
+> - **0 `INVALID_SESSION_INFORMATION`**.
+> - **268 keepAlive** correctos, cada ~15 min.
+> - 9 logins, exactamente uno cada 8 h: renovación programada por `SESSION_MAX_AGE`, no fallos.
+> - **0 ciclos fallidos por autenticación** y 0 reinicios del collector.
 >
-> Detalle en la [validación](../audits/2026-09-session-keepalive-validation.md).
+> Todos los huecos de más de 16 min entre keepAlive coinciden con esos relogins, salvo uno de
+> 19,0 min (29-sep 02:17 → 02:36). Lo causó el backoff del
+> [incidente de desbordamiento](../audits/2026-09-spread-overflow-incident.md) y no hubo caducidad.
+> Con el aislamiento por mercado, ese backoff ya no se activa por fallos de datos.
+>
+> Detalle de la implementación en la [validación](../audits/2026-09-session-keepalive-validation.md).
 
-**Hecho cuando:** se cumple el criterio final de arriba (24 h sin reautenticaciones forzadas por
-expiración normal), o con una causa distinta documentada.
+**Hecho cuando:** se cumple el criterio de 24 h sin reautenticaciones forzadas por expiración
+normal. **Cumplido.**
 
 **Riesgo:** bajo. Es un cambio acotado en `auth.py`.
 
@@ -168,14 +175,30 @@ cliente y las mismas garantías (ver `docs/BETFAIR_SETUP.md`, apartado *Garantí
 
 ### 3.5-C2 — Observación del catálogo ATP del Exchange español
 
-> **Estado de 3.5-C2 (2026-09-27)**
+> **Estado de 3.5-C2: RUNNING** (desde el 2026-09-29 00:00 UTC; fin el 2026-10-19 00:00 UTC)
 >
 > | Campo | Valor |
 > |---|---|
-> | C2 | **IMPLEMENTED** (herramienta probada en real en un directorio temporal) |
-> | Timer | **INSTALLED** (`edgecourt-catalogue-audit.timer` enabled y active desde el 2026-09-27) |
-> | Experimento | **NOT STARTED** hasta el **2026-09-29 00:00 UTC** (hasta entonces cada ejecución termina como `outside_window`, sin login) |
-> | Fin | **2026-10-19 00:00 UTC** |
+> | C2 | IMPLEMENTED (commit `eb3949f`) |
+> | Timer | INSTALLED y active |
+> | Experimento | **RUNNING** |
+>
+> **Resultado INTERMEDIO** (auditoría del 2026-09-30, hasta el slot de las 05:00 UTC, **no es
+> una conclusión**):
+> - **58 de 58 slots** capturados, **cobertura del 100 %**, integridad verificada (hashes,
+>   relaciones de cada ejecución con su catálogo y sus libros, permisos, sin duplicados).
+> - **WTA Beijing 2026 visible** en el catálogo `.es` (competición 12833957, 31 mercados
+>   `MATCH_ODDS` individuales, datos retrasados). Es el primer torneo regular que aparece en
+>   `.es`.
+> - **ATP Beijing: no visible** hasta el momento de la auditoría, ni la qualy (28–29 sep) ni el
+>   inicio del cuadro principal.
+> - **ATP Tokyo: no visible.**
+> - **Challenger: no visible.**
+> - Cruce con el collector: 31 mercados «audit=sí, collector=sí» y 0 «audit=sí, collector=no».
+> - **La conclusión ATP sigue abierta.** Shanghái (desde el 7-oct) es una prueba independiente.
+> - Durante la auditoría se detectó y corrigió un
+>   [desbordamiento de `max_spread_pct`](../audits/2026-09-spread-overflow-incident.md). Afectó al
+>   collector, no a C2.
 
 **Objetivo:** observar de forma reproducible qué catálogo de tenis devuelve la sesión `.es`
 durante ATP 500 (Pekín, Tokio) y el Masters 1000 (Shanghái), y distinguir si la ausencia de ATP
@@ -213,7 +236,7 @@ se trabaja en A–C. Cada semana de muestra es irrecuperable (riesgo R4 de
 
 Phase 3.5 se cierra cuando se cumplan **todas** estas condiciones:
 
-1. **3.5-A** resuelto y verificado en producción.
+1. **3.5-A** resuelto y verificado en producción. ✅ **Cumplido** (2026-09-30).
 2. **3.5-B:** existe una definición fiable de closing price, documentada en `DECISIONS.md`,
    implementada y con tests. Su fiabilidad está medida sobre datos nuevos.
 3. **3.5-C:** se conoce, con evidencia, por qué faltaron los torneos regulares, y existe una
@@ -239,6 +262,9 @@ definición fiable de closing price, **antes** de basar Value o CLV en estos dat
 | 2026-09-27 | 3.5-C investigada: conclusión F (calendario en parte + jurisdicción `.es` con evidencia empírica). Duración de sesión de 20 min confirmada oficialmente (3.5-A). Clave Delayed verificada | [investigación](../investigations/2026-09-atp-wta-catalogue.md) |
 | 2026-09-27 | 3.5-A implementada: keepAlive cada 15 min en `es`/`it`, manejo de respuestas no JSON y log de renovación. Servicio reiniciado; keepAlive real aceptado a las 08:15:02 UTC, sin caducidades | [validación](../audits/2026-09-session-keepalive-validation.md) |
 | 2026-09-27 | 3.5-C2: herramienta de auditoría de catálogo implementada, probada en real (directorio temporal) y protocolo fijado. Experimento NOT STARTED (empieza el 2026-09-29) | [protocolo](../investigations/2026-10-spanish-exchange-atp-catalogue.md) |
+| 2026-09-29 | 3.5-C2 en marcha (RUNNING) | timer |
+| 2026-09-30 | Auditoría intermedia de C2: 58/58 slots, WTA Beijing visible, ATP Beijing, Tokyo y Challenger no visibles. 3.5-A pasa a DONE | este documento |
+| 2026-09-30 | Incidente de desbordamiento de `max_spread_pct` corregido: migración 004 y aislamiento por mercado, validados en producción | [incidente](../audits/2026-09-spread-overflow-incident.md) |
 
 ## Pendiente de decisión (surgida de 3.5-C)
 

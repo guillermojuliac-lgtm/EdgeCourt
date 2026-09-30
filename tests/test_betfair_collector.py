@@ -406,3 +406,107 @@ def test_collector_writes_nothing_to_the_odds_directory(collector_settings):
 
     after = {p for p in collector_settings.odds_dir.rglob("*") if p.is_file()}
     assert after == before, f"el collector escribio en data/odds: {sorted(after - before)}"
+
+
+# --- Aislamiento de fallos por mercado (incidente del 2026-09-29) ---------------
+
+
+def _three_due_markets():
+    return [catalogue(m, now=NOW, start_in_minutes=60) for m in ("1.001", "1.002", "1.003")]
+
+
+@pytest.mark.critical
+def test_a_rejected_market_does_not_lose_the_others(collector_settings, monkeypatch):
+    """A valido, B rechazado por PostgreSQL, C valido: A y C se guardan, B no."""
+    import psycopg
+
+    from edgecourt.market import collector as collector_module
+
+    saved: list[str] = []
+
+    def fake_save(cursor, payload):
+        if payload.market_id == "1.002":
+            raise psycopg.errors.NumericValueOutOfRange("numeric field overflow")
+        saved.append(payload.market_id)
+        return 1
+
+    monkeypatch.setattr(collector_module, "save_observation", fake_save)
+    result = _collector(collector_settings, _FakeClient(_three_due_markets())).run_cycle()
+
+    assert saved == ["1.001", "1.003"]
+    assert result.observations_written == 2
+    assert result.failed_markets == ["1.002"]
+    assert result.ok
+
+
+def test_integrity_errors_are_also_isolated(collector_settings, monkeypatch):
+    import psycopg
+
+    from edgecourt.market import collector as collector_module
+
+    def fake_save(cursor, payload):
+        if payload.market_id == "1.001":
+            raise psycopg.errors.CheckViolation("runner_price_back_valid")
+        return 1
+
+    monkeypatch.setattr(collector_module, "save_observation", fake_save)
+    result = _collector(collector_settings, _FakeClient(_three_due_markets())).run_cycle()
+
+    assert result.failed_markets == ["1.001"]
+    assert result.observations_written == 2
+
+
+def test_rejected_market_is_logged_with_its_market_id(collector_settings, monkeypatch, caplog):
+    import psycopg
+
+    from edgecourt.market import collector as collector_module
+
+    def fake_save(cursor, payload):
+        if payload.market_id == "1.002":
+            raise psycopg.errors.NumericValueOutOfRange("numeric field overflow\nDETAIL: x")
+        return 1
+
+    monkeypatch.setattr(collector_module, "save_observation", fake_save)
+    with caplog.at_level("ERROR"):
+        _collector(collector_settings, _FakeClient(_three_due_markets())).run_cycle()
+
+    records = [
+        r for r in caplog.records if r.getMessage() == "observacion rechazada por PostgreSQL"
+    ]
+    assert len(records) == 1
+    assert records[0].market_id == "1.002"
+    assert records[0].error_type == "NumericValueOutOfRange"
+
+
+@pytest.mark.critical
+def test_connection_errors_still_abort_the_cycle(collector_settings, monkeypatch):
+    """Con la conexion rota no se sigue: el bucle principal la recupera como antes."""
+    import psycopg
+
+    from edgecourt.market import collector as collector_module
+
+    def broken(cursor, payload):
+        raise psycopg.OperationalError("conexion perdida")
+
+    monkeypatch.setattr(collector_module, "save_observation", broken)
+    with pytest.raises(psycopg.OperationalError):
+        _collector(collector_settings, _FakeClient(_three_due_markets())).run_cycle()
+
+
+@pytest.mark.critical
+def test_collector_keeps_running_after_a_rejected_market(collector_settings, monkeypatch):
+    import psycopg
+
+    from edgecourt.market import collector as collector_module
+
+    def fake_save(cursor, payload):
+        if payload.market_id == "1.002":
+            raise psycopg.errors.NumericValueOutOfRange("numeric field overflow")
+        return 1
+
+    monkeypatch.setattr(collector_module, "save_observation", fake_save)
+    collector = _collector(collector_settings, _FakeClient(_three_due_markets()))
+    collector._stop.wait = lambda _s: None
+
+    assert collector.run(max_cycles=3) == 3
+    assert collector._consecutive_failures == 0

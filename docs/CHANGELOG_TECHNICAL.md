@@ -8,6 +8,44 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-09-30 — Incidente: desbordamiento de `max_spread_pct` y aislamiento por mercado
+
+- **Cambio:**
+  - Migración `004_widen_max_spread_pct.sql`: `market_observation.max_spread_pct` pasa de
+    `numeric(8,4)` a `numeric(12,4)`, sin clamp.
+  - `collector.run_cycle`: un mercado rechazado por PostgreSQL por sus **datos** (`DataError`,
+    `IntegrityError`) solo deshace su propia transacción. El ciclo continúa con los demás y lo
+    registra en `failed_markets`. Los errores de conexión siguen abortando el ciclo.
+- **Motivo:** el 29-sep, entre las 02:15 y las 03:41 UTC, el mercado `1.263050661` (spread del
+  peor runner de 13.471–17.331 %) desbordó la columna en su hito de 24 h. La excepción salía del
+  bucle y abortaba el ciclo entero: **19 ciclos fallidos**, backoff y pérdida de observaciones de
+  otros mercados.
+- **Resultado:**
+  - Migración aplicada en producción a las 05:32 UTC; datos existentes intactos (suma de control
+    idéntica).
+  - Collector reiniciado de forma controlada a las 05:35 UTC; 0 desbordamientos desde entonces.
+  - Pérdida estimada: 1 hito de 24 h y entre 16 y ~48 observaciones adaptive. Recuperable solo
+    parcialmente desde C2. **Sin backfill.**
+- **Tests:** +12, de ellos 6 de integración contra PostgreSQL con los valores reales del incidente
+  y la cota máxima de 98.909,9010 %. Suite: **515 passed** (174 críticos, 41 de integración).
+  `ruff` limpio.
+- **Commit:** pendiente.
+- **Docs:** [incidente](audits/2026-09-spread-overflow-incident.md),
+  [POSTGRESQL](architecture/POSTGRESQL.md).
+
+## 2026-09-30 — Auditoría intermedia de 3.5-C2 y cierre de 3.5-A
+
+- **Cambio:** ninguno en código. Revisión de solo lectura de los artefactos de C2, del journal y de
+  la base de datos.
+- **Resultado:**
+  - **C2 RUNNING:** 58/58 slots (cobertura del 100 %), integridad verificada.
+  - **WTA Beijing 2026 visible** en `.es` (31 `MATCH_ODDS`); ATP Beijing, ATP Tokyo y Challenger
+    no visibles; 0 mercados «audit=sí, collector=no». La conclusión ATP sigue abierta.
+  - **3.5-A DONE:** unas 69 h con 0 `INVALID_SESSION_INFORMATION`, 268 keepAlive y 0 fallos de
+    autenticación.
+- **Commit:** pendiente, junto con la entrada anterior.
+- **Docs:** [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
+
 ## 2026-09-27 — Phase 3.5-C2: herramienta de auditoría del catálogo de tenis
 
 - **Cambio:**
@@ -31,7 +69,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   2026-10-19 00:00 UTC).
 - **Tests:** +31 en `tests/test_catalogue_audit.py`. Suite: **503 passed** (165 críticos).
   Barrera de solo lectura en verde. `ruff` limpio.
-- **Commit:** pendiente.
+- **Commit:** `eb3949f`.
 - **Docs:** [protocolo](investigations/2026-10-spanish-exchange-atp-catalogue.md),
   [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
 
@@ -52,7 +90,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   - La reautenticación se mantiene como segunda barrera.
 - **Tests:** +15 (14 en `test_betfair_keepalive.py` y 1 en `test_betfair_collector.py`). Suite:
   **472 passed** (151 críticos). `ruff` limpio. Barrera de solo lectura en verde.
-- **Commit:** `6751047`. Estado: **VALIDATING** hasta completar 24 h de producción (2026-09-28 08:00 UTC).
+- **Commit:** `6751047` (implementación) y `02189b2` (cierre documental en VALIDATING). Estado: **DONE** el 2026-09-30, con la validación de 24 h superada.
 - **Docs:** [validación](audits/2026-09-session-keepalive-validation.md),
   [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md),
   [BETFAIR_COLLECTOR](architecture/BETFAIR_COLLECTOR.md).

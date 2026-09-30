@@ -65,6 +65,8 @@ class CycleResult:
     observations_written: int = 0
     with_prices: int = 0
     without_prices: int = 0
+    # Observaciones que PostgreSQL rechazo por sus datos. No abortan el ciclo.
+    failed_markets: list[str] = field(default_factory=list)
     labels: dict[str, int] = field(default_factory=dict)
     error: str | None = None
 
@@ -212,8 +214,30 @@ class Collector:
 
                 # Una transaccion por mercado: nunca puede quedar una observacion
                 # que declare has_prices sin sus filas de precio.
-                with transaction(connection) as cursor:
-                    save_observation(cursor, payload)
+                #
+                # Aislamiento de fallos (incidente del 2026-09-29): si PostgreSQL
+                # rechaza los DATOS de un mercado (desbordamiento, CHECK...), solo
+                # se deshace la transaccion de ese mercado y el ciclo sigue con los
+                # demas. Antes la excepcion salia del bucle y se perdian todos los
+                # mercados posteriores del ciclo. Los errores de conexion
+                # (OperationalError, InterfaceError) se siguen propagando: con la
+                # conexion rota no tiene sentido seguir, y el bucle principal la
+                # recupera como hasta ahora.
+                try:
+                    with transaction(connection) as cursor:
+                        save_observation(cursor, payload)
+                except (psycopg.DataError, psycopg.IntegrityError) as exc:
+                    result.failed_markets.append(payload.market_id)
+                    log.error(
+                        "observacion rechazada por PostgreSQL",
+                        extra={
+                            "market_id": payload.market_id,
+                            "snapshot_label": payload.snapshot_label,
+                            "error_type": type(exc).__name__,
+                            "error": str(exc).splitlines()[0][:200],
+                        },
+                    )
+                    continue
 
                 result.observations_written += 1
                 if payload.has_prices:
@@ -293,6 +317,7 @@ class Collector:
                         "written": result.observations_written,
                         "with_prices": result.with_prices,
                         "without_prices": result.without_prices,
+                        "failed_markets": result.failed_markets,
                         "labels": result.labels,
                     },
                 )

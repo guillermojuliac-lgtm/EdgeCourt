@@ -44,7 +44,10 @@ Cada `COLLECTOR_INTERVAL_SECONDS` (60 s por defecto; en la práctica, ~60,16 s p
 4. **Precios.** `listMarketBook` en lotes de 40, con `EX_BEST_OFFERS`, profundidad 3 y
    `virtualise=true`. Se agrupa por etiqueta.
 5. **Escritura.** Una transacción por mercado (`save_observation`), idempotente por
-   `(market_id, capture_key, observed_at)`.
+   `(market_id, capture_key, observed_at)`. Desde el 2026-09-30, si PostgreSQL rechaza los datos
+   de un mercado (`DataError`, `IntegrityError`), solo se deshace ese mercado: el ciclo continúa y
+   el `market_id` queda en `failed_markets`
+   ([incidente](../audits/2026-09-spread-overflow-incident.md)).
 
 ## Política de captura ([DEC-006](../DECISIONS.md#dec-006))
 

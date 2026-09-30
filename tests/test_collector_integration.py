@@ -259,3 +259,130 @@ def test_export_of_empty_range_is_harmless(settings, db):
     result = export_range(db, settings.odds_dir, start=date(2020, 1, 1), end=date(2020, 2, 1))
     assert result.rows == 0
     assert result.destination is None
+
+
+# --- Incidente del 2026-09-29: desbordamiento de max_spread_pct ---------------
+
+
+def _column_type(db, table: str, column: str) -> tuple[int, int]:
+    with db.cursor() as cursor:
+        cursor.execute(
+            "SELECT numeric_precision, numeric_scale FROM information_schema.columns "
+            "WHERE table_name = %s AND column_name = %s",
+            (table, column),
+        )
+        row = cursor.fetchone()
+    db.commit()
+    return row["numeric_precision"], row["numeric_scale"]
+
+
+def _stored_spreads(db) -> dict[str, object]:
+    with db.cursor() as cursor:
+        cursor.execute("SELECT market_id, max_spread_pct FROM market_observation")
+        rows = {r["market_id"]: r["max_spread_pct"] for r in cursor.fetchall()}
+    db.commit()
+    return rows
+
+
+class _BookClient(_Client):
+    """Cliente con un libro concreto por mercado."""
+
+    def __init__(self, catalogues, books) -> None:
+        super().__init__(catalogues)
+        self.books = books
+
+    def list_market_book(self, market_ids):
+        return [self.books[m] for m in market_ids]
+
+
+def test_max_spread_pct_column_is_numeric_12_4(db):
+    assert _column_type(db, "market_observation", "max_spread_pct") == (12, 4)
+
+
+@pytest.mark.critical
+@pytest.mark.parametrize(
+    ("back", "lay", "expected"),
+    [
+        # Valores del incidente real (Marcinko v Frech, 1.263050661).
+        (1.09, 190.0, "17331.1927"),
+        (1.40, 190.0, "13471.4286"),
+        # Cota maxima de la escala de Betfair: 1,01 / 1.000.
+        (1.01, 1000.0, "98909.9010"),
+    ],
+)
+def test_extreme_spread_is_stored_without_clamp(settings, db, back, lay, expected):
+    """El spread real se conserva: ni desbordamiento, ni truncado, ni clamp."""
+    from decimal import Decimal
+
+    market = catalogue("1.263050661", now=NOW, start_in_minutes=60)
+    book = market_book("1.263050661", back_a=back, lay_a=lay)
+    result = _collector(settings, db, _BookClient([market], {"1.263050661": book})).run_cycle()
+
+    assert result.failed_markets == []
+    assert result.observations_written == 1
+    assert _stored_spreads(db)["1.263050661"] == Decimal(expected)
+
+
+@pytest.mark.critical
+def test_invalid_market_is_rolled_back_alone(settings, db):
+    """A valido, B rechazado por un CHECK real de PostgreSQL, C valido."""
+    markets = [catalogue(m, now=NOW, start_in_minutes=60) for m in ("1.001", "1.002", "1.003")]
+    books = {
+        "1.001": market_book("1.001"),
+        # Cuota por debajo de 1,01: la rechaza runner_price_back_valid.
+        "1.002": market_book("1.002", back_a=1.0),
+        "1.003": market_book("1.003"),
+    }
+    collector = _collector(settings, db, _BookClient(markets, books))
+
+    result = collector.run_cycle()
+
+    assert result.failed_markets == ["1.002"]
+    assert result.observations_written == 2
+    stored = _stored_spreads(db)
+    assert set(stored) == {"1.001", "1.003"}
+    # Ni la observacion ni los precios de B: su transaccion se deshizo entera.
+    with db.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) AS n FROM runner_price p JOIN market_observation o "
+            "USING (observation_id, observed_at) WHERE o.market_id = '1.002'"
+        )
+        assert cursor.fetchone()["n"] == 0
+    db.commit()
+
+    # Y el collector sigue funcionando: un ciclo posterior es idempotente.
+    again = collector.run_cycle()
+    assert again.failed_markets in ([], ["1.002"])
+    assert set(_stored_spreads(db)) == {"1.001", "1.003"}
+
+
+@pytest.mark.critical
+def test_migration_004_upgrades_an_existing_database_preserving_data(settings, db, tmp_path):
+    """Ruta real de produccion: esquema 001-003 con datos -> se aplica 004 -> nada cambia."""
+    import shutil
+    from decimal import Decimal
+
+    from edgecourt.db.migrate import MIGRATIONS_DIR, current_version, migrate
+
+    # Rehacer el esquema solo hasta la 003, como estaba produccion.
+    with db.cursor() as cursor:
+        cursor.execute("DROP SCHEMA public CASCADE")
+        cursor.execute("CREATE SCHEMA public")
+    db.commit()
+    old = tmp_path / "old"
+    old.mkdir()
+    for path in sorted(MIGRATIONS_DIR.glob("00[1-3]_*.sql")):
+        shutil.copy(path, old / path.name)
+    migrate(db, old)
+    assert current_version(db) == 3
+    assert _column_type(db, "market_observation", "max_spread_pct") == (8, 4)
+
+    market = catalogue("1.001", now=NOW, start_in_minutes=60)
+    _collector(settings, db, _BookClient([market], {"1.001": market_book("1.001")})).run_cycle()
+    before = _stored_spreads(db)
+
+    applied = migrate(db)
+    assert [m.version for m in applied] == [4]
+    assert _column_type(db, "market_observation", "max_spread_pct") == (12, 4)
+    assert _stored_spreads(db) == before  # datos existentes intactos
+    assert isinstance(before["1.001"], Decimal)

@@ -1,9 +1,10 @@
 # Investigación 3.5-C2 — Catálogo ATP del Exchange español (PROTOCOLO)
 
-> **ESTADO: NOT STARTED.**
+> **ESTADO: RUNNING** desde el **2026-09-29 a las 00:00 UTC**; termina el **2026-10-19 a las
+> 00:00 UTC**.
 > - Herramienta **IMPLEMENTED** y timer **INSTALLED** (2026-09-27).
-> - La captura oficial empieza el **2026-09-29 a las 00:00 UTC** y termina el **2026-10-19 a las
->   00:00 UTC**.
+> - El seguimiento intermedio, que **no** son conclusiones, está en el
+>   [documento de la fase](../phases/PHASE_03_5_MARKET_VALIDATION.md) (3.5-C2).
 >
 > Este documento es el **protocolo, fijado antes de ver los datos**. Las conclusiones se
 > añadirán en una sección nueva al cerrar el experimento, sin modificar el protocolo.

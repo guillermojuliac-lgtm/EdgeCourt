@@ -209,3 +209,20 @@ def test_rollback_is_also_rejected(tmp_path):
     (tmp_path / "001_mala.sql").write_text("CREATE TABLE x (i int);\nROLLBACK;\n")
     with pytest.raises(ValueError, match="ROLLBACK"):
         discover(tmp_path)
+
+
+@pytest.mark.critical
+def test_max_spread_pct_is_widened_by_a_new_migration():
+    """Incidente del 2026-09-29: numeric(8,4) desbordaba con spreads > 9.999,9999 %.
+
+    La correccion va en una migracion nueva (las aplicadas no se editan) y amplia
+    la precision sin tocar la escala, sin clamp.
+    """
+    migrations = {m.version: m for m in discover()}
+    assert "max_spread_pct      numeric(8,4)" in migrations[1].sql  # historia intacta
+    widening = migrations[4].sql
+    assert "ALTER COLUMN max_spread_pct TYPE numeric(12,4)" in widening
+    assert "LEAST(" not in widening.upper() and "GREATEST(" not in widening.upper()
+    # La cota real (1,01 / 1.000) cabe con margen en numeric(12,4).
+    worst = (1000 - 1.01) / 1.01 * 100
+    assert worst < 10**8

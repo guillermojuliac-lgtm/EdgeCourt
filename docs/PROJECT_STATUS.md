@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **Estado ACTUAL, no un histórico.** Se reescribe al cerrar cada tarea relevante.
-> Última actualización: **2026-09-27**.
+> Última actualización: **2026-09-30**.
 > Histórico: [`CHANGELOG_TECHNICAL.md`](CHANGELOG_TECHNICAL.md) · convenciones:
 > [`README.md`](README.md).
 
@@ -50,7 +50,7 @@ Roadmap completo en [`ROADMAP.md`](ROADMAP.md).
 | Betfair | `httpx` directo, login por certificado, jurisdicción `es` ([DEC-009](DECISIONS.md#dec-009)) |
 | Configuración | `pydantic-settings` y `.env` (nunca versionado) |
 | Operación | systemd (`edgecourt-collector.service`) |
-| Calidad | pytest (503 tests: 165 críticos y 35 de integración), ruff |
+| Calidad | pytest (515 tests: 174 críticos y 41 de integración), ruff |
 | Ausentes | Redis y Docker (ver DECISIONS, «Hechos verificados sin decisión documentada») |
 
 ## Arquitectura
@@ -74,8 +74,11 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 ## Collector
 
 - **Estado:** en operación desde el 2026-09-18.
-  - Reinicio controlado el 2026-09-27 a las 07:59:59 UTC para cargar el keepAlive de 3.5-A.
-  - Sin fallos desde entonces.
+  - Reinicios controlados el 2026-09-27 (keepAlive de 3.5-A) y el 2026-09-30 a las 05:35 UTC
+    (aislamiento de fallos por mercado).
+  - Del 29-sep a las 02:15 al 29-sep a las 03:41 UTC hubo 19 ciclos fallidos por el
+    [desbordamiento de `max_spread_pct`](audits/2026-09-spread-overflow-incident.md), ya
+    corregido (migración 004).
   - Detalle en [`architecture/BETFAIR_COLLECTOR.md`](architecture/BETFAIR_COLLECTOR.md).
 - **Sesión:** keepAlive preventivo cada 15 min (sesión `.es` de 20 min). Verificado en producción
   ([validación](audits/2026-09-session-keepalive-validation.md)).
@@ -101,6 +104,7 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 | Mercado | competiciones en la muestra | Davis Cup, BJK Cup y Laver Cup. **Ningún torneo ATP ni WTA regular** | ídem |
 | Catálogo | exchange visible para la cuenta `.es` (27-sep, 07:22 UTC) | 2 disciplinas (Soccer 2.995, Tennis **3**). Tenis = solo Laver Cup. betfair.com mostraba además ATP 250, WTA 500/250 y Challengers | [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md) |
 | Datos | Application Key | **Delayed** (`delayData = true`); libros con `isMarketDataDelayed = true` (retraso de 1–180 s) | ídem |
+| C2 (intermedio) | catálogo `.es` del 29-sep 00:00 al 30-sep 05:00 UTC | 58/58 slots (100 %). **WTA Beijing 2026 visible** (31 `MATCH_ODDS`); **ATP Beijing, ATP Tokyo y Challenger no visibles**. No es una conclusión | [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md) |
 
 ## Próximos pasos
 
@@ -109,13 +113,15 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
    muestra.
 2. **Phase 3.5-C2:** observación del catálogo `.es` durante ATP 500 (Pekín/Tokio, desde el
    30-sep) y Masters 1000 (Shanghái, desde el 7-oct).
-   - C2 **IMPLEMENTED** y timer **INSTALLED** (enabled y active desde el 2026-09-27).
-   - Experimento **NOT STARTED** hasta el 2026-09-29 00:00 UTC; termina el 2026-10-19 00:00 UTC.
+   - Experimento **RUNNING** desde el 2026-09-29 00:00 UTC; termina el 2026-10-19 00:00 UTC.
+   - Auditoría intermedia del 30-sep: cobertura del 100 %; WTA Beijing visible; ATP Beijing,
+     Tokyo y Challenger no visibles. **La conclusión ATP sigue abierta**; Shanghái (desde el
+     7-oct) es una prueba independiente.
    - [Protocolo](investigations/2026-10-spanish-exchange-atp-catalogue.md).
    - El collector sigue recogiendo en paralelo (3.5-D).
-3. **Phase 3.5-A: VALIDATING** (implementada, validada contra Betfair real y en producción).
-   Falta la validación final de 24 h: del **2026-09-27 08:00 UTC** al **2026-09-28 08:00 UTC**,
-   sin `INVALID_SESSION_INFORMATION` por expiración normal de la sesión. No está DONE.
+3. **Phase 3.5-A: DONE** (2026-09-30).
+   - Más de 24 h superadas: unas 69 h revisadas.
+   - 0 `INVALID_SESSION_INFORMATION`, 268 keepAlive correctos y 0 fallos de autenticación.
 4. **Phase 3.5-B:** closing price, **con la prioridad supeditada al punto 1**.
 
 ## Decisiones abiertas
@@ -142,6 +148,11 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
   **por mercado** y **no por selección**, según la tabla oficial *Delay & Live Application Keys
   Overview*; los datos son coherentes con ello. Además, la Live Key no admite uso de solo lectura,
   según Betfair.
+- **Corregido el 2026-09-30:** `max_spread_pct numeric(8,4)` desbordaba con spreads por encima
+  del 10.000 % y un mercado inválido abortaba el ciclo entero. Solución: migración 004
+  (`numeric(12,4)`) y aislamiento por mercado. Se perdieron entre 16 y ~48 observaciones
+  adaptive y 1 hito de 24 h; **no se ha hecho backfill**
+  ([incidente](audits/2026-09-spread-overflow-incident.md)).
 - `edgecourt collector health` etiqueta como «UTC» la hora local. Defecto de presentación, sin
   corregir.
 

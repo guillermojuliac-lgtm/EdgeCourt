@@ -28,7 +28,7 @@ Decisiones relacionadas: [DEC-004](../DECISIONS.md#dec-004), [DEC-005](../DECISI
 | Puerto | no estándar. El 5432 lo ocupa otro PostgreSQL en contenedor, y `scripts/setup_postgres.sh` detecta el puerto del clúster |
 | Conexión | `DATABASE_URL` en el `.env`. **Nunca** se documenta ni se registra en logs con la contraseña; `redact_dsn()` la oculta |
 | Base de tests | `EDGECOURT_TEST_DSN`, **distinta por validación**: los tests de integración recrean el esquema |
-| Migraciones aplicadas | 001, 002 y 003 (2026-09-18 15:14 CEST) |
+| Migraciones aplicadas | 001, 002 y 003 (2026-09-18 15:14 CEST); **004** (2026-09-30 07:32 CEST) |
 
 Scripts: `scripts/setup_postgres.sh` (creación inicial) y `scripts/diagnose_postgres.sh`.
 
@@ -59,7 +59,7 @@ Columnas clave de `market_observation`:
 | `minutes_to_start` | Distancia real al inicio **publicado en ese momento** |
 | `has_prices` / `has_liquidity` | «Hay algo». El umbral de negocio se aplica al consultar |
 | `total_available` | Suma de los tamaños de los niveles 1–3, BACK + LAY, de todos los runners |
-| `max_spread_pct` | Peor `(lay_1 − back_1)/back_1` entre runners con ambos lados |
+| `max_spread_pct` | Peor `(lay_1 − back_1)/back_1 × 100` entre runners con ambos lados. **`numeric(12,4)` desde la migración 004** (antes `numeric(8,4)`, que desbordaba por encima de 9.999,9999). La cota real con la escala de Betfair es 98.909,9010 %. `NULL` si no es calculable; sin clamp |
 | `collector_run_id` | Ejecución que escribió la fila |
 
 Restricciones que impiden estados incoherentes:
@@ -120,7 +120,21 @@ Para analizar sin riesgo, usar una sesión con `SET default_transaction_read_onl
 hizo en la [auditoría de la Semana 1](../audits/2026-09-week1-market-audit.md); su script
 `q.py` es un ejemplo reutilizable.
 
+## Transacciones y aislamiento de fallos
+
+- **Una transacción por mercado:** observación y precios se escriben juntos o no se escribe
+  ninguno.
+- **Desde el 2026-09-30, un error de *datos* de un mercado** (`psycopg.DataError`,
+  `IntegrityError`) solo deshace esa transacción. El collector registra el `market_id` en
+  `failed_markets` y sigue con los demás mercados del ciclo.
+- **Los errores de *conexión*** siguen abortando el ciclo.
+- Ver el [incidente de desbordamiento](../audits/2026-09-spread-overflow-incident.md).
+
 ## Incidentes históricos relevantes
+
+- **2026-09-29, desbordamiento de `max_spread_pct`:** 19 ciclos fallidos y pérdida parcial de
+  observaciones. Corregido con la migración 004 y el aislamiento por mercado
+  ([informe](../audits/2026-09-spread-overflow-incident.md)).
 
 - **2026-09-18, commit `7eea268`:** la contraseña de la base de tests apareció en claro en un
   traceback de pytest, porque la fixture recibía la DSN como argumento. Se corrigió con `SafeDsn`.
