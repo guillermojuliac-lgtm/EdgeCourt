@@ -23,7 +23,20 @@ StartLimitIntervalSec=600
 StartLimitBurst=5
 
 [Service]
-Type=simple
+# Type=notify: el collector avisa con READY=1 cuando esta listo (BD accesible y
+# bloqueo singleton tomado) y con WATCHDOG=1 tras cada ciclo completado sin error
+# (src/edgecourt/systemd_notify.py). Sin ese aviso, systemd ve 'active' un proceso
+# cuyos ciclos fallan indefinidamente (incidente del 2026-10-01).
+Type=notify
+NotifyAccess=main
+
+# 1200 s: ver docs/audits/2026-10-collector-watchdog.md. Cubre un ciclo sano
+# (intervalo 60 s + timeouts de red 30 s por llamada) y hasta 3 fallos transitorios
+# seguidos del backoff (~1080 s en el peor caso); lo supera un fallo persistente
+# (4 o mas seguidos). Debe seguir siendo mayor que el peor hueco de 3 fallos y menor
+# que el de 5 (tests/test_collector_watchdog.py lo protege).
+# Una parada manual (systemctl stop/restart) no cuenta como fallo del watchdog.
+WatchdogSec=1200
 
 # Nunca como root.
 User=willy

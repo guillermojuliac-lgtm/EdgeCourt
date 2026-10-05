@@ -15,6 +15,25 @@ Ficheros de ejemplo para ejecutar EdgeCourt como servicio en Ubuntu.
 | `edgecourt-predictor.service` | Genera predicciones y evalua value | 9 |
 | `edgecourt-training.service` + `.timer` | Reentrenamiento semanal del challenger | 14 |
 
+### Watchdog del collector
+
+`edgecourt-collector.service` usa `Type=notify` y `WatchdogSec=1200`: el collector avisa a systemd
+tras cada ciclo completado sin error. Si deja de hacerlo 20 minutos, systemd lo reinicia
+(`Restart=on-failure`). Fuera de systemd el collector funciona igual. Detalle:
+[`docs/audits/2026-10-collector-watchdog.md`](../docs/audits/2026-10-collector-watchdog.md).
+
+Actualizar la unidad ya instalada:
+
+```bash
+systemd-analyze verify deploy/edgecourt-collector.service
+sudo install -m 644 -o root -g root deploy/edgecourt-collector.service /etc/systemd/system/edgecourt-collector.service
+sudo systemctl daemon-reload
+sudo systemctl restart edgecourt-collector
+```
+
+Comprobación: `systemctl show edgecourt-collector -p Type,WatchdogUSec,NotifyAccess` debe mostrar
+`Type=notify` y `WatchdogUSec=20min`.
+
 ## Preparacion
 
 ```bash

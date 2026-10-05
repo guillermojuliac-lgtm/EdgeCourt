@@ -45,6 +45,7 @@ from edgecourt.market import persistence, snapshots
 from edgecourt.market.auth import MissingCredentialsError, SessionManager
 from edgecourt.market.cadence import DEFAULT_CADENCE, CadenceRule, plan_captures
 from edgecourt.market.client import MarketFilter, ReadOnlyBettingClient
+from edgecourt.systemd_notify import SystemdNotifier
 
 log = get_logger("collector")
 
@@ -88,8 +89,11 @@ class Collector:
         clock=None,
         cadence: tuple[CadenceRule, ...] = DEFAULT_CADENCE,
         adaptive_enabled: bool = True,
+        notifier: SystemdNotifier | None = None,
     ) -> None:
         self._settings = settings
+        # Sin NOTIFY_SOCKET (fuera de systemd) el notificador es un no-op.
+        self._notifier = notifier or SystemdNotifier.from_env()
         self._sessions = sessions or SessionManager(settings)
         self._client = client or ReadOnlyBettingClient(self._sessions)
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -291,8 +295,15 @@ class Collector:
 
         try:
             with singleton(self.connection()):
+                # READY=1 solo cuando el proceso esta preparado para operar:
+                # configuracion cargada (Settings ya existe), PostgreSQL accesible
+                # (la conexion se acaba de abrir) y bloqueo singleton tomado. No
+                # se espera a Betfair: la sesion es perezosa y una caida temporal
+                # de Betfair no debe impedir arrancar; de eso se ocupa el watchdog.
+                self._notifier.ready()
                 cycles = self._loop(max_cycles, interval)
         finally:
+            self._notifier.stopping()
             self._sessions.close()
             self._close_connection()
             log.info("collector detenido", extra={"cycles": cycles})
@@ -321,6 +332,11 @@ class Collector:
                         "labels": result.labels,
                     },
                 )
+                # Unico punto de latido: el ciclo termino sin excepcion. Un ciclo
+                # con 0 mercados, 0 observaciones o 0 precios tambien es sano. Si
+                # el ciclo falla, o el bucle se cuelga, no se llega aqui y systemd
+                # agota WatchdogSec.
+                self._notifier.watchdog()
             except MissingCredentialsError:
                 # Un fallo de configuracion no es temporal: reintentarlo cada
                 # minuto durante horas solo esconde el problema en los logs.

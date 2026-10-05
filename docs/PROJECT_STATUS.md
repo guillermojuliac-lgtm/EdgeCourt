@@ -50,7 +50,7 @@ Roadmap completo en [`ROADMAP.md`](ROADMAP.md).
 | Betfair | `httpx` directo, login por certificado, jurisdicción `es` ([DEC-009](DECISIONS.md#dec-009)) |
 | Configuración | `pydantic-settings` y `.env` (nunca versionado) |
 | Operación | systemd (`edgecourt-collector.service`) |
-| Calidad | pytest (546 tests: 192 críticos y 63 de integración), ruff |
+| Calidad | pytest (570 tests: 197 críticos y 64 de integración), ruff |
 | Ausentes | Redis y Docker (ver DECISIONS, «Hechos verificados sin decisión documentada») |
 
 ## Arquitectura
@@ -84,6 +84,11 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
     (1.311 ciclos fallidos). Corregido el 2026-10-05 con la migración 005 y la política UTC
     ([DEC-019](DECISIONS.md#dec-019)). Se recuperó sin reiniciar; **falta un reinicio controlado**
     para cargar el código Python nuevo.
+  - **Watchdog de systemd** (`Type=notify`, `WatchdogSec=1200`): **VALIDADO en producción**
+    el 2026-10-05 (`WatchdogUSec=20min`, READY aceptado, parada limpia, health OK)
+    ([auditoría](audits/2026-10-collector-watchdog.md)). Un fallo persistente de ciclos acaba en
+    reinicio por systemd; la expiración real no se provocó en producción (la cubren los tests).
+  - **Backfill del 1–5 de octubre: decisión = NO REALIZAR** (C2 tiene otra resolución).
   - Detalle en [`architecture/BETFAIR_COLLECTOR.md`](architecture/BETFAIR_COLLECTOR.md).
 - **Sesión:** keepAlive preventivo cada 15 min (sesión `.es` de 20 min). Verificado en producción
   ([validación](audits/2026-09-session-keepalive-validation.md)).

@@ -8,6 +8,27 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-10-05 — Hardening: watchdog de systemd y salud de particiones
+
+- **Cambio:**
+  - `src/edgecourt/systemd_notify.py`: `sd_notify` con la biblioteca estándar; no-op sin `NOTIFY_SOCKET`.
+  - `Collector`: `READY=1` tras abrir PostgreSQL y tomar el bloqueo; `WATCHDOG=1` solo tras un
+    ciclo completado sin excepción (también con 0 mercados); `STOPPING=1` al parar.
+  - `deploy/edgecourt-collector.service`: `Type=notify`, `NotifyAccess=main`, `WatchdogSec=1200`.
+  - `collector health`: partición del mes actual y siguiente, límites UTC y filas en `default` de
+    `market_observation` y `runner_price` (solo lectura).
+- **Motivo:** `systemd` veía `active` un collector con 1.311 ciclos fallidos seguidos.
+- **Resultado:** 24 tests nuevos (**570** en total, 197 críticos, 64 de integración); `ruff` limpio;
+  `systemd-analyze verify` sin avisos. **Validado en producción el 2026-10-05 13:39:36 UTC**:
+  `Type=notify`, `NotifyAccess=main`, `WatchdogUSec=20min`, `Restart=on-failure`, READY aceptado,
+  parada anterior limpia (bloqueo liberado), primer ciclo correcto y health OK. No se provocó una
+  expiración real (cubierta por tests).
+- **Decisión registrada:** backfill del 1–5 de octubre = **NO REALIZAR** (los datos de C2 tienen
+  otra resolución y no reconstruyen el dataset operacional). No añadida a `DECISIONS.md`: propuesta
+  en la auditoría.
+- **Commit:** `feat: add systemd watchdog for collector`. Corrección de particiones: `4ca87d0`.
+- **Docs:** [auditoría](audits/2026-10-collector-watchdog.md).
+
 ## 2026-10-05 — Incidente: particiones con límites en Europe/Madrid (collector sin persistir 109,6 h)
 
 - **Cambio:**
@@ -37,7 +58,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 - **Tests:** +31 (**546** en total, **192** críticos, **63** de integración): reproducción exacta
   del incidente y de la reparación, 5 zonas de sesión, cambio de mes, DST, cambio de año,
   reversión ante fallo e idempotencia. `ruff` limpio.
-- **Commit:** pendiente.
+- **Commit:** `4ca87d0`.
 - **Docs:** [incidente](audits/2026-10-partition-timezone-incident.md),
   [POSTGRESQL](architecture/POSTGRESQL.md), [DEC-019](DECISIONS.md#dec-019).
 

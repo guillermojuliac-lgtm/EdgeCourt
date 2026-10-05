@@ -119,10 +119,16 @@ uv run edgecourt collector status               # cobertura por etiqueta (desde 
 uv run edgecourt betfair check                  # credenciales y lectura, sin escribir nada
 ```
 
-- **`active` no significa «persistiendo».** `systemd` solo ve si el proceso vive, y un fallo
-  determinista de ciclo nunca lo termina (el bucle absorbe cada excepción). `collector health` es
-  quien detecta que no se persiste, pero hoy **no lo ejecuta ni lo vigila nadie**. Propuesta en el
-  [incidente §11](../audits/2026-10-partition-timezone-incident.md).
+- **Watchdog (`Type=notify`, `WatchdogSec=1200`).** El bucle envía `WATCHDOG=1` solo tras un ciclo
+  completado sin excepción (`Collector._loop`; un ciclo con 0 mercados cuenta como sano). Si los
+  ciclos fallan o el bucle se cuelga, systemd mata el proceso al agotar 1200 s y
+  `Restart=on-failure` lo reinicia. `READY=1` tras abrir PostgreSQL y tomar el bloqueo;
+  `STOPPING=1` al parar. Sin `NOTIFY_SOCKET` es un no-op. Detalle y justificación de 1200 s en la
+  [auditoría](../audits/2026-10-collector-watchdog.md). *(Efectivo cuando la unidad esté
+  instalada.)*
+- **El watchdog prueba que el bucle completa ciclos, no que persista:** con 0 mercados el ciclo no
+  toca la base de datos. `collector health` (particiones del mes actual y siguiente, límites UTC,
+  filas en `default`) sigue siendo la comprobación de datos y no la ejecuta nadie automáticamente.
 - **Un único collector:** advisory lock de PostgreSQL (`db/locks.py`). Si se lanza un segundo a
   mano, sale con código 6 e indica el PID que tiene el bloqueo.
 - **Logs:** bajo systemd, JSON por stdout al journal (`SyslogIdentifier=edgecourt-collector`), y

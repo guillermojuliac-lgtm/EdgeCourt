@@ -35,6 +35,7 @@ class HealthReport:
     runs_24h: int = 0
     last_run_id: str | None = None
     partition_default_rows: int = 0
+    runner_price_default_rows: int = 0
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -65,8 +66,57 @@ class HealthReport:
             "markets_total": self.markets_total,
             "markets_upcoming": self.markets_upcoming,
             "runs_24h": self.runs_24h,
+            "partition_default_rows": self.partition_default_rows,
+            "runner_price_default_rows": self.runner_price_default_rows,
             "warnings": self.warnings,
         }
+
+
+PARTITIONED_TABLES = ("market_observation", "runner_price")
+
+
+def _utc_month_start(moment: datetime) -> datetime:
+    utc = moment.astimezone(UTC)
+    return datetime(utc.year, utc.month, 1, tzinfo=UTC)
+
+
+def _next_month_start(first_day: datetime) -> datetime:
+    year, month = (
+        (first_day.year + 1, 1) if first_day.month == 12 else (first_day.year, first_day.month + 1)
+    )
+    return datetime(year, month, 1, tzinfo=UTC)
+
+
+def partition_warnings(cursor: Any, now: datetime) -> list[str]:
+    """Avisos sobre las particiones del mes UTC actual y del siguiente. Solo lectura.
+
+    Comprueba que existen y que sus limites son exactamente
+    `[mes 00:00 UTC, mes siguiente 00:00 UTC)` (DEC-019).
+    """
+    warnings: list[str] = []
+    current = _utc_month_start(now)
+    for table in PARTITIONED_TABLES:
+        for first_day in (current, _next_month_start(current)):
+            name = f"{table}_{first_day:%Y%m}"
+            cursor.execute(
+                "SELECT lower_bound, upper_bound FROM partition_bounds(to_regclass(%s))",
+                (name,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                warnings.append(f"falta la particion {name}")
+                continue
+            expected = (first_day, _next_month_start(first_day))
+            actual = (row["lower_bound"], row["upper_bound"])
+            if actual != expected:
+                warnings.append(
+                    f"la particion {name} no tiene limites UTC correctos: "
+                    f"esperado [{expected[0]:%Y-%m-%dT%H:%M:%SZ}, "
+                    f"{expected[1]:%Y-%m-%dT%H:%M:%SZ}), "
+                    f"tiene [{actual[0].astimezone(UTC):%Y-%m-%dT%H:%M:%SZ}, "
+                    f"{actual[1].astimezone(UTC):%Y-%m-%dT%H:%M:%SZ})"
+                )
+    return warnings
 
 
 def collect_health(
@@ -125,6 +175,10 @@ def collect_health(
         # Filas en la particion por defecto significan que falto crear la del mes.
         cursor.execute("SELECT count(*) AS n FROM market_observation_default")
         report.partition_default_rows = cursor.fetchone()["n"]
+        cursor.execute("SELECT count(*) AS n FROM runner_price_default")
+        report.runner_price_default_rows = cursor.fetchone()["n"]
+
+        partition_problems = partition_warnings(cursor, now)
 
     connection.commit()
 
@@ -146,8 +200,14 @@ def collect_health(
 
     if report.partition_default_rows:
         report.warnings.append(
-            f"{report.partition_default_rows} filas en la particion por defecto: "
+            f"{report.partition_default_rows} filas en market_observation_default: "
             "falta crear la particion del mes"
         )
+    if report.runner_price_default_rows:
+        report.warnings.append(
+            f"{report.runner_price_default_rows} filas en runner_price_default: "
+            "falta crear la particion del mes"
+        )
+    report.warnings.extend(partition_problems)
 
     return report
