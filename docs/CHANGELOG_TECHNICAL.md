@@ -8,6 +8,52 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-10-05 — Incidente: particiones con límites en Europe/Madrid (collector sin persistir 109,6 h)
+
+- **Cambio:**
+  - Migración `005_utc_monthly_partitions.sql`:
+    - funciones `utc_month_bounds` y `partition_bounds`;
+    - `ensure_month_partition` con límites UTC explícitos (`+00`);
+    - **reparación transaccional** del esquema: preserva las filas atrapadas en `default`, reajusta
+      septiembre a UTC y las reinserta, con verificación por recuento y md5 y `ROLLBACK` si algo
+      no cuadra;
+    - mes actual y siguiente (UTC).
+  - `repositories.ensure_partitions`: mes en UTC y **mes siguiente** siempre garantizado.
+  - `collector health`: instantes en UTC real terminados en `Z` (antes, hora local etiquetada UTC).
+  - [DEC-019](DECISIONS.md#dec-019): particionado mensual en UTC explícito.
+- **Motivo:** las particiones se crearon con fechas sin zona, interpretadas en Europe/Madrid:
+  septiembre terminó a las 22:00 UTC del 30-sep. El 1-oct a las 00:00 UTC crear octubre solapó con
+  32 observaciones (y 64 precios) atrapadas en `default` y **cada ciclo falló**: 1.311 ciclos
+  fallidos y **109,6 h sin persistir** (del 30-sep 23:40:39 UTC al 5-oct 13:17:01 UTC). `systemd` lo
+  veía `active` y nadie vigilaba `collector health`.
+- **Resultado:**
+  - Producción, 13:12 UTC: **ANTES = DESPUÉS**: 3.462 observaciones y 4.973 precios, mismo md5;
+    `default` de 32/64 filas a 0/0; ids conservados (3450–3481).
+  - Ensayo previo con una copia real de producción en la base de test: mismo resultado.
+  - El collector se recuperó **sin reiniciar** (primer ciclo 13:16:01 UTC; primera observación
+    nueva 13:17:01 UTC, id 3482, en `market_observation_202610`).
+  - Pérdida estimada de ~1.700–2.300 observaciones y unos 600 hitos; **no recuperable
+    exactamente**, parcialmente desde C2. **Sin backfill.**
+- **Tests:** +31 (**546** en total, **192** críticos, **63** de integración): reproducción exacta
+  del incidente y de la reparación, 5 zonas de sesión, cambio de mes, DST, cambio de año,
+  reversión ante fallo e idempotencia. `ruff` limpio.
+- **Commit:** pendiente.
+- **Docs:** [incidente](audits/2026-10-partition-timezone-incident.md),
+  [POSTGRESQL](architecture/POSTGRESQL.md), [DEC-019](DECISIONS.md#dec-019).
+
+## 2026-10-05 — Revisión de 3.5-C2: `.es` ofrece ATP, de forma parcial
+
+- **Cambio:** ninguno en código. Revisión de solo lectura de los artefactos de C2 (313 slots).
+- **Resultado:**
+  - Cobertura del 100 % y 155 mercados de tenis.
+  - **ATP Pekín: 3 mercados** (2 individuales y 1 de dobles); **ATP Shanghai: 44**; ATP Tokyo: 0;
+    Challenger: 0; WTA Beijing: 108.
+  - Conclusión intermedia: **`.es` ofrece ATP, pero de forma parcial**. Supera el resultado B del
+    30-sep. C2 sigue abierto hasta el 19-oct; Shanghái es la prueba independiente.
+  - Esta revisión descubrió el incidente de particiones.
+- **Commit:** pendiente, junto con la entrada anterior.
+- **Docs:** [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
+
 ## 2026-09-30 — Incidente: desbordamiento de `max_spread_pct` y aislamiento por mercado
 
 - **Cambio:**
@@ -29,7 +75,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 - **Tests:** +12, de ellos 6 de integración contra PostgreSQL con los valores reales del incidente
   y la cota máxima de 98.909,9010 %. Suite: **515 passed** (174 críticos, 41 de integración).
   `ruff` limpio.
-- **Commit:** pendiente.
+- **Commit:** `0096db2`.
 - **Docs:** [incidente](audits/2026-09-spread-overflow-incident.md),
   [POSTGRESQL](architecture/POSTGRESQL.md).
 
@@ -43,7 +89,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
     no visibles; 0 mercados «audit=sí, collector=no». La conclusión ATP sigue abierta.
   - **3.5-A DONE:** unas 69 h con 0 `INVALID_SESSION_INFORMATION`, 268 keepAlive y 0 fallos de
     autenticación.
-- **Commit:** pendiente, junto con la entrada anterior.
+- **Commit:** `0096db2` (junto con la entrada anterior).
 - **Docs:** [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
 
 ## 2026-09-27 — Phase 3.5-C2: herramienta de auditoría del catálogo de tenis

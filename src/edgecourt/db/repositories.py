@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import psycopg
@@ -319,12 +319,30 @@ def load_market_states(cursor: psycopg.Cursor, market_ids: list[str]) -> dict[st
     return states
 
 
+def _utc_month_start(moment: datetime) -> date:
+    """Primer dia del mes UTC de `moment`. Un datetime sin zona se interpreta como UTC."""
+    utc = moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+    return date(utc.year, utc.month, 1)
+
+
+def _next_month(first_day: date) -> date:
+    return date(first_day.year + (first_day.month == 12), first_day.month % 12 + 1, 1)
+
+
 def ensure_partitions(cursor: psycopg.Cursor, month: datetime) -> list[str]:
-    """Crea las particiones mensuales necesarias. Idempotente."""
+    """Garantiza las particiones mensuales del mes UTC de `month` y del SIGUIENTE.
+
+    La politica es UTC (DEC-019): el mes se calcula en UTC aqui y los limites los
+    fija `ensure_month_partition` en UTC, sin depender de la zona de la sesion.
+    Crear tambien el mes siguiente hace que el cambio de mes no dependa del primer
+    ciclo posterior a la medianoche (incidente del 2026-10-01). Idempotente.
+    """
+    current = _utc_month_start(month)
     created: list[str] = []
     for table in ("market_observation", "runner_price"):
-        cursor.execute("SELECT ensure_month_partition(%s, %s) AS name", (table, month.date()))
-        created.append(cursor.fetchone()["name"])
+        for first_day in (current, _next_month(current)):
+            cursor.execute("SELECT ensure_month_partition(%s, %s) AS name", (table, first_day))
+            created.append(cursor.fetchone()["name"])
     return created
 
 

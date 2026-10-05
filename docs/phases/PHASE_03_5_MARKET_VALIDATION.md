@@ -183,22 +183,47 @@ cliente y las mismas garantías (ver `docs/BETFAIR_SETUP.md`, apartado *Garantí
 > | Timer | INSTALLED y active |
 > | Experimento | **RUNNING** |
 >
-> **Resultado INTERMEDIO** (auditoría del 2026-09-30, hasta el slot de las 05:00 UTC, **no es
-> una conclusión**):
-> - **58 de 58 slots** capturados, **cobertura del 100 %**, integridad verificada (hashes,
->   relaciones de cada ejecución con su catálogo y sus libros, permisos, sin duplicados).
-> - **WTA Beijing 2026 visible** en el catálogo `.es` (competición 12833957, 31 mercados
->   `MATCH_ODDS` individuales, datos retrasados). Es el primer torneo regular que aparece en
->   `.es`.
-> - **ATP Beijing: no visible** hasta el momento de la auditoría, ni la qualy (28–29 sep) ni el
->   inicio del cuadro principal.
-> - **ATP Tokyo: no visible.**
-> - **Challenger: no visible.**
-> - Cruce con el collector: 31 mercados «audit=sí, collector=sí» y 0 «audit=sí, collector=no».
-> - **La conclusión ATP sigue abierta.** Shanghái (desde el 7-oct) es una prueba independiente.
-> - Durante la auditoría se detectó y corrigió un
->   [desbordamiento de `max_spread_pct`](../audits/2026-09-spread-overflow-incident.md). Afectó al
->   collector, no a C2.
+> **Resultado INTERMEDIO nº 2** (revisión del 2026-10-05, hasta el slot de las 12:30 UTC,
+> **no es una conclusión**):
+> - **Cobertura:** 313 de 313 slots esperados capturados (**100 %**), integridad verificada
+>   (hashes, relaciones de cada ejecución con su catálogo y sus libros, permisos, sin duplicados).
+> - **155 mercados de tenis** (138 individuales y 17 de dobles) en solo 3 competiciones:
+>
+>   | Competición (id Betfair) | Mercados | Primera vez | Antelación |
+>   |---|---|---|---|
+>   | WTA Beijing 2026 (12833957) | 108 | 29-sep | hasta ~81 h |
+>   | **ATP Beijing 2026 (12834053)** | **3** (2 individuales y 1 de dobles) | 30-sep 23:00 UTC | 37 h y 20 h |
+>   | **ATP Shanghai 2026 (12835824)** | **44** | 4-oct 11:00 y 5-oct 06:30 UTC | 17–26 h y 45 h |
+>   | ATP Tokyo | **0** | — | — |
+>   | Challenger | **0** | — | — |
+>
+> - **`.es` ofrece ATP, pero solo de forma parcial.**
+>   - Pekín ATP: solo *Yu Bu v Djokovic*, *De Minaur v Hurkacz* y un partido de dobles (el cuadro
+>     individual es de 32). ATP Tokyo, ninguno.
+>   - Shanghái: 24 partidos del 5-oct, anteriores al cuadro principal (probablemente la
+>     clasificación; no verificado), y 20 de primera ronda del 7-oct, publicados de golpe.
+> - **Calidad** (solo descriptiva; ATP Pekín es una muestra de 3 mercados):
+>   - ATP Pekín: BACK y LAY en el 98 % de las observaciones, spread del favorito P50 de 6,3 %.
+>   - ATP Shanghái (partidos del 5-oct): BACK y LAY en el 42 %, spread del favorito P50 de 13,1 %,
+>     `totalMatched` > 0 en el 3,5 %.
+>   - WTA Pekín (referencia): BACK y LAY en el 74 %, spread del favorito P50 de 5,9 %.
+> - **Comprobación manual de las webs públicas** (5-oct, un único instante, resumida
+>   automáticamente): betfair.com mostraba ATP Pekín con *Djokovic v Medvedev* y ATP Tokyo con
+>   *Alcaraz v Lehecka*, que **no** están en el catálogo `.es`; betfair.es mostraba ATP Shanghái y
+>   WTA Pekín. Apunta a que `.es` es un subconjunto, **sin confirmación oficial**.
+> - **Cruce con el collector:** los 40 mercados que el collector pudo ver antes de su caída
+>   (1-oct) aparecen todos en su base; los otros 115 aparecieron después de la caída, así que la
+>   comparación quedó bloqueada ([incidente](../audits/2026-10-partition-timezone-incident.md)). No
+>   hay ningún problema de descubrimiento.
+> - **La conclusión ATP sigue abierta.** Quedan Shanghái con su cuadro principal (desde el 7-oct) y
+>   hasta el 19-oct. Si `.es` abre más partidos de Pekín o Tokio, y por qué solo se ofrecen unos
+>   pocos de Pekín, **no está verificado**.
+> - C2 **no depende de PostgreSQL**: no se vio afectado por el incidente y es hoy el único registro
+>   continuo (cada 30 min) del 1 al 5-oct.
+>
+> **Resultado intermedio nº 1** (2026-09-30, hasta las 05:00 UTC): 58/58 slots; WTA Beijing visible
+> (31 mercados); ATP Pekín, ATP Tokyo y Challenger no visibles. Quedó superado: el primer mercado
+> ATP apareció 18 h después de esa revisión.
 
 **Objetivo:** observar de forma reproducible qué catálogo de tenis devuelve la sesión `.es`
 durante ATP 500 (Pekín, Tokio) y el Masters 1000 (Shanghái), y distinguir si la ausencia de ATP
@@ -265,6 +290,8 @@ definición fiable de closing price, **antes** de basar Value o CLV en estos dat
 | 2026-09-29 | 3.5-C2 en marcha (RUNNING) | timer |
 | 2026-09-30 | Auditoría intermedia de C2: 58/58 slots, WTA Beijing visible, ATP Beijing, Tokyo y Challenger no visibles. 3.5-A pasa a DONE | este documento |
 | 2026-09-30 | Incidente de desbordamiento de `max_spread_pct` corregido: migración 004 y aislamiento por mercado, validados en producción | [incidente](../audits/2026-09-spread-overflow-incident.md) |
+| 2026-10-05 | Revisión de C2: 313/313 slots; **`.es` ofrece ATP de forma parcial** (ATP Pekín 3 mercados, ATP Shanghái 44; ATP Tokyo y Challenger 0). Se detecta que el collector llevaba ~109 h sin persistir | este documento |
+| 2026-10-05 | Incidente de particionado por zona horaria corregido: migración 005, política UTC (DEC-019) | [incidente](../audits/2026-10-partition-timezone-incident.md) |
 
 ## Pendiente de decisión (surgida de 3.5-C)
 

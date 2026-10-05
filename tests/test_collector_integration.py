@@ -382,7 +382,9 @@ def test_migration_004_upgrades_an_existing_database_preserving_data(settings, d
     before = _stored_spreads(db)
 
     applied = migrate(db)
-    assert [m.version for m in applied] == [4]
+    # La 004 es la primera pendiente; las posteriores (p. ej. la 005, particionado UTC)
+    # se aplican a continuacion y no deben alterar los datos.
+    assert [m.version for m in applied][0] == 4
     assert _column_type(db, "market_observation", "max_spread_pct") == (12, 4)
     assert _stored_spreads(db) == before  # datos existentes intactos
     assert isinstance(before["1.001"], Decimal)

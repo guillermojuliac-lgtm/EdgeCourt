@@ -12,7 +12,7 @@ PostgreSQL. **Solo lectura frente a Betfair.** No decide nada ni apuesta.
 
 | | |
 |---|---|
-| Servicio | `edgecourt-collector.service`, en operación desde el 2026-09-18. Reinicio controlado el 2026-09-27 a las 07:59:59 UTC para cargar el keepAlive de 3.5-A |
+| Servicio | `edgecourt-collector.service`, en operación desde el 2026-09-18. Reinicios controlados: 2026-09-27 (keepAlive de 3.5-A) y 2026-09-30 (aislamiento por mercado). **Sin persistir del 30-sep 23:40 UTC al 5-oct 13:17 UTC** por el [incidente de particiones](../audits/2026-10-partition-timezone-incident.md), ya corregido |
 | Uptime en los últimos 7 días | 10.054 ciclos, 0 fallos, intervalo P50 60,13 s y P99 60,57 s |
 | Jurisdicción | **Sesión española**, verificada: `BETFAIR_JURISDICTION = es`, login, `keepAlive` y `logout` en `identitysso.betfair.es`; los logs registran `"jurisdiction": "es"` |
 | Betting API | `https://api.betfair.com/exchange/betting/rest/v1.0`: la global, también con sesión `.es`. Verificado que funciona en `46fae68`. Sirve el catálogo que corresponde a la cuenta `.es` ([investigación 3.5-C](../investigations/2026-09-atp-wta-catalogue.md)) |
@@ -21,7 +21,7 @@ PostgreSQL. **Solo lectura frente a Betfair.** No decide nada ni apuesta.
 | Volumen casado con la Delayed Key | Según la tabla oficial *Delay & Live Application Keys Overview*: por **mercado**, sí; por **selección**, no. Coincide con los datos: `runner_total_matched` siempre es 0 |
 | Duración de la sesión | **20 minutos en el Exchange español**, verificado en la documentación oficial (*Login & Session Management*) y coincidente con lo observado. Se renueva con keepAlive cada 15 min |
 | Catálogo | El catálogo `.es` observado es muy reducido (27-sep: solo Laver Cup en tenis). Que Betfair.es tenga oficialmente menos mercados que Betfair.com está **NO VERIFICADO oficialmente**: es una observación empírica ([3.5-C](../investigations/2026-09-atp-wta-catalogue.md)) |
-| Problemas abiertos | [Phase 3.5](../phases/PHASE_03_5_MARKET_VALIDATION.md): closing price (B) y catálogo `.es` (C, decisión pendiente). El `keepAlive` (A) está resuelto, con seguimiento de 24 h |
+| Problemas abiertos | [Phase 3.5](../phases/PHASE_03_5_MARKET_VALIDATION.md): closing price (B) y catálogo `.es` (C, decisión pendiente; en C2 aparece ATP de forma parcial). El `keepAlive` (A) está **DONE**. **Abierto:** `systemd` puede ver el servicio `active` aunque el collector no persista (ver el [incidente §11](../audits/2026-10-partition-timezone-incident.md)) |
 
 ## Ciclo
 
@@ -33,7 +33,9 @@ Cada `COLLECTOR_INTERVAL_SECONDS` (60 s por defecto; en la práctica, ~60,16 s p
    - `sort=FIRST_TO_START`.
 
    **No hay filtro de competición**, así que entran también WTA y dobles. El catálogo se
-   sincroniza con `betfair_event`, `betfair_market` y `betfair_runner` en su propia transacción.
+   sincroniza con `betfair_event`, `betfair_market` y `betfair_runner` en su propia transacción. En
+   esa misma transacción se garantizan las **particiones mensuales UTC del mes actual y del
+   siguiente** (`ensure_partitions`, [DEC-019](../DECISIONS.md#dec-019)).
 2. **Estado.** Se lee de PostgreSQL por mercado: si mostró precios o liquidez, la última
    observación y los hitos ya capturados. Así la planificación sobrevive a reinicios.
 3. **Planificación** (`market/cadence.py::plan_captures`). Como mucho, una captura por mercado y
@@ -112,11 +114,15 @@ Se rediseña en Phase 3.5-B.
 ```bash
 systemctl status edgecourt-collector            # estado del servicio
 journalctl -u edgecourt-collector -f            # logs JSON en vivo
-uv run edgecourt collector health               # sale con código 1 si hay avisos
+uv run edgecourt collector health               # sale con código 1 si hay avisos; instantes en UTC (Z)
 uv run edgecourt collector status               # cobertura por etiqueta (desde PostgreSQL)
 uv run edgecourt betfair check                  # credenciales y lectura, sin escribir nada
 ```
 
+- **`active` no significa «persistiendo».** `systemd` solo ve si el proceso vive, y un fallo
+  determinista de ciclo nunca lo termina (el bucle absorbe cada excepción). `collector health` es
+  quien detecta que no se persiste, pero hoy **no lo ejecuta ni lo vigila nadie**. Propuesta en el
+  [incidente §11](../audits/2026-10-partition-timezone-incident.md).
 - **Un único collector:** advisory lock de PostgreSQL (`db/locks.py`). Si se lanza un segundo a
   mano, sale con código 6 e indica el PID que tiene el bloqueo.
 - **Logs:** bajo systemd, JSON por stdout al journal (`SyslogIdentifier=edgecourt-collector`), y

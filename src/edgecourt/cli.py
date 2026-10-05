@@ -672,6 +672,28 @@ def _cmd_db_liquidity(settings: Settings, _args: argparse.Namespace) -> int:
     return 0
 
 
+def format_utc(moment: datetime) -> str:
+    """Instante en UTC real, terminado en Z (ISO 8601).
+
+    psycopg devuelve los timestamptz en la zona de la sesion (Europe/Madrid), asi
+    que hay que convertir antes de etiquetar: escribir "UTC" sobre una hora local
+    fue el defecto detectado el 2026-10-05. Un datetime sin zona se rechaza:
+    seria ambiguo.
+    """
+    if moment.tzinfo is None:
+        raise ValueError("se requiere un datetime con zona horaria")
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def format_age(moment: datetime | None, minutes: float) -> str:
+    """`2026-09-30T23:40:39Z  (hace 5.2 h)`. Siempre en UTC."""
+    if moment is None:
+        return "nunca"
+    if minutes < 60:
+        return f"{format_utc(moment)}  (hace {minutes:.0f} min)"
+    return f"{format_utc(moment)}  (hace {minutes / 60:.1f} h)"
+
+
 def _cmd_collector_health(settings: Settings, args: argparse.Namespace) -> int:
     """Estado de salud del collector. Apto para supervision desatendida."""
     from edgecourt.db.health import collect_health
@@ -679,12 +701,7 @@ def _cmd_collector_health(settings: Settings, args: argparse.Namespace) -> int:
     with _db_connection(settings) as connection:
         report = collect_health(connection, stale_after_minutes=args.stale_minutes)
 
-    def _edad(momento, minutos):
-        if momento is None:
-            return "nunca"
-        if minutos < 60:
-            return f"{momento:%Y-%m-%d %H:%M:%S} UTC  (hace {minutos:.0f} min)"
-        return f"{momento:%Y-%m-%d %H:%M:%S} UTC  (hace {minutos / 60:.1f} h)"
+    _edad = format_age
 
     print("SALUD DEL COLLECTOR")
     print(f"  estado                      : {'OK' if report.healthy else 'CON AVISOS'}")

@@ -28,7 +28,7 @@ Decisiones relacionadas: [DEC-004](../DECISIONS.md#dec-004), [DEC-005](../DECISI
 | Puerto | no estándar. El 5432 lo ocupa otro PostgreSQL en contenedor, y `scripts/setup_postgres.sh` detecta el puerto del clúster |
 | Conexión | `DATABASE_URL` en el `.env`. **Nunca** se documenta ni se registra en logs con la contraseña; `redact_dsn()` la oculta |
 | Base de tests | `EDGECOURT_TEST_DSN`, **distinta por validación**: los tests de integración recrean el esquema |
-| Migraciones aplicadas | 001, 002 y 003 (2026-09-18 15:14 CEST); **004** (2026-09-30 07:32 CEST) |
+| Migraciones aplicadas | 001, 002 y 003 (2026-09-18 15:14 CEST); 004 (2026-09-30 07:32 CEST); **005** (2026-10-05 15:12 CEST) |
 
 Scripts: `scripts/setup_postgres.sh` (creación inicial) y `scripts/diagnose_postgres.sh`.
 
@@ -67,11 +67,23 @@ Restricciones que impiden estados incoherentes:
 - `runner_price_back_valid` y `runner_price_lay_valid` (cuota ≥ 1,01);
 - índice único `(market_id, capture_key, observed_at)`, para la idempotencia.
 
-**Particiones:**
-- `ensure_month_partition()` crea `<tabla>_YYYYMM` de forma idempotente. Existe
-  `market_observation_202609`.
-- Las particiones `*_default` recogen lo que caiga fuera de un mes creado.
-- El motivo es poder archivar con DETACH + exportar + DROP, en lugar de un `DELETE` masivo.
+**Particiones (política UTC, [DEC-019](../DECISIONS.md#dec-019), migración 005):**
+- Toda partición mensual es **`[YYYY-MM-01 00:00:00 UTC, mes siguiente 00:00:00 UTC)`**, con los
+  límites escritos con desplazamiento explícito (`+00`). No depende de la zona del servidor ni de
+  la sesión, ni de Europe/Madrid, ni del horario de verano.
+- `utc_month_bounds(fecha)` calcula los límites y `partition_bounds(partición)` los lee como
+  instantes absolutos.
+- `ensure_month_partition(tabla, fecha)` crea `<tabla>_YYYYMM` de forma idempotente y emite un
+  `WARNING` si la partición ya existe con límites que no son el mes UTC.
+- **El collector garantiza siempre el mes actual y el siguiente** (`repositories.ensure_partitions`,
+  en UTC), así que el cambio de mes no depende del primer ciclo posterior a la medianoche.
+- Existen `market_observation_202609`, `_202610` y `_202611` (y las equivalentes de `runner_price`).
+- Las particiones `*_default` solo deben recoger lo que caiga fuera de todo mes creado. **Cualquier
+  fila en `default` es una anomalía**: `collector health` la avisa.
+- El motivo del particionado es poder archivar con DETACH + exportar + DROP, en lugar de un `DELETE`
+  masivo.
+- **Antes de la migración 005** los límites eran de Europe/Madrid (septiembre terminaba a las 22:00
+  UTC): ver el [incidente](../audits/2026-10-partition-timezone-incident.md).
 
 ### Modelos, predicciones y paper betting (tablas creadas, vacías a 2026-09-27)
 
@@ -128,10 +140,17 @@ hizo en la [auditoría de la Semana 1](../audits/2026-09-week1-market-audit.md);
   `IntegrityError`) solo deshace esa transacción. El collector registra el `market_id` en
   `failed_markets` y sigue con los demás mercados del ciclo.
 - **Los errores de *conexión*** siguen abortando el ciclo.
+- **Límite conocido:** el aislamiento es por mercado y solo cubre la escritura de observaciones.
+  Un fallo en la sincronización del catálogo o en la creación de particiones (como el de
+  octubre) sigue abortando el ciclo entero, porque ocurre antes de ese bucle. Por eso las
+  particiones se crean por adelantado y se avisa si una tiene límites no UTC.
 - Ver el [incidente de desbordamiento](../audits/2026-09-spread-overflow-incident.md).
 
 ## Incidentes históricos relevantes
 
+- **2026-10-01, particiones con límites de Europe/Madrid:** el collector estuvo ~109 h sin
+  persistir. Corregido con la migración 005 y la política UTC
+  ([informe](../audits/2026-10-partition-timezone-incident.md)).
 - **2026-09-29, desbordamiento de `max_spread_pct`:** 19 ciclos fallidos y pérdida parcial de
   observaciones. Corregido con la migración 004 y el aislamiento por mercado
   ([informe](../audits/2026-09-spread-overflow-incident.md)).

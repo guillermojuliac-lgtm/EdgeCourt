@@ -93,6 +93,13 @@ El collector (8) se adelantó el 2026-09-18 porque cada semana sin recolectar es
   - Auditoría Semana 1 (2.ª parte), [2026-09-week1-market-audit](audits/2026-09-week1-market-audit.md).
   - **3.5-C investigada**, [2026-09-atp-wta-catalogue](investigations/2026-09-atp-wta-catalogue.md):
     el catálogo `.es` no ofreció ATP regular. EdgeCourt no pierde mercados.
+  - **3.5-A DONE** (30-sep).
+  - **3.5-C2 RUNNING.** Revisión del 5-oct: cobertura del 100 %; **`.es` ofrece ATP de forma
+    parcial** (ATP Pekín 3 mercados, ATP Shanghái 44, ATP Tokyo 0, sin Challenger). Conclusión aún
+    abierta hasta el 19-oct.
+  - Incidentes de datos corregidos: [desbordamiento de `max_spread_pct`](audits/2026-09-spread-overflow-incident.md)
+    (30-sep) y [particiones en hora de Madrid](audits/2026-10-partition-timezone-incident.md)
+    (5-oct, 109,6 h sin persistir). Política de particionado UTC ([DEC-019](DECISIONS.md#dec-019)).
 - **Bloqueo interno:** hace falta decidir la fuente de mercado y el alcance realista antes de
   priorizar 3.5-B.
 - **Criterio de salida y detalle:** [`phases/PHASE_03_5_MARKET_VALIDATION.md`](phases/PHASE_03_5_MARKET_VALIDATION.md).

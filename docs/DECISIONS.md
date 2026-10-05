@@ -37,6 +37,7 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 | [DEC-016](#dec-016) | Ledger inmutable en PostgreSQL (sustituye al JSONL de D3) | Vigente |
 | [DEC-017](#dec-017) | Python 3.13 gestionado por `uv`; stdlib antes que dependencias | Vigente |
 | [DEC-018](#dec-018) | TennisMyLife como fuente primaria; mirror de Sackmann solo como contraste | Vigente |
+| [DEC-019](#dec-019) | Particionado mensual de PostgreSQL en UTC explícito | Vigente |
 
 ---
 
@@ -423,6 +424,39 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
   - El contraste dio un 100 % de acuerdo en el ganador sobre 101.025 partidos.
 - **Revisar si:** TennisMyLife deja de actualizarse.
 - **Fuente:** `docs/DATA.md`, commit `ed7cb77`.
+
+<a id="dec-019"></a>
+### DEC-019 — Particionado mensual de PostgreSQL en UTC explícito
+
+- **Fecha:** 2026-10-05 · **Estado:** Vigente · **Corrige:** el particionado de la migración 002
+- **Contexto:** la migración 002 creaba las particiones con fechas sin hora ni zona, que
+  PostgreSQL interpreta en la zona de la **sesión** (Europe/Madrid). La de septiembre terminó a
+  las 22:00 UTC del 30-sep, mientras el collector elige el mes en UTC. El 1-oct a las 00:00 UTC
+  crear octubre falló por solapamiento con filas atrapadas en `default` y el collector estuvo
+  ~109 h sin persistir ([incidente](audits/2026-10-partition-timezone-incident.md)).
+- **Decisión:**
+  - Toda partición mensual de `market_observation` y `runner_price` es
+    `[YYYY-MM-01 00:00:00 UTC, mes siguiente 00:00:00 UTC)`.
+  - Los límites se escriben siempre con desplazamiento explícito (`+00`) mediante
+    `utc_month_bounds()`; no dependen de la zona del servidor, de la sesión, de Europe/Madrid ni
+    del horario de verano.
+  - El collector garantiza siempre la partición del mes actual **y la del siguiente** (UTC), de modo
+    que el cambio de mes no depende del primer ciclo posterior a la medianoche.
+  - `ensure_month_partition` avisa (`WARNING`) si encuentra una partición con límites no UTC.
+- **Razón:** una política de particionado no puede depender de configuración ambiental.
+- **Alternativas consideradas:**
+  - fijar `timezone = 'UTC'` en el servidor o en la base: descartada, porque depende de que esa
+    configuración se mantenga y no protege frente a otra sesión;
+  - particionar por fecha local de Madrid: descartada, porque introduce el DST y desalinea con el
+    resto del proyecto, que trabaja en UTC;
+  - `pg_partman`: nueva dependencia innecesaria a esta escala.
+- **Consecuencias:**
+  - La migración 005 repara el estado existente y la política queda fijada por tests.
+  - La exportación y el archivo por partición (DEC-014) usan meses UTC.
+  - Las particiones ya no pueden crearse con límites de Madrid sin que salte el aviso.
+- **Revisar si:** cambia el motor de particionado o la retención.
+- **Fuente:** `migrations/005_utc_monthly_partitions.sql`, `src/edgecourt/db/repositories.py`,
+  `tests/test_partitioning_utc.py`.
 
 ---
 

@@ -226,3 +226,23 @@ def test_max_spread_pct_is_widened_by_a_new_migration():
     # La cota real (1,01 / 1.000) cabe con margen en numeric(12,4).
     worst = (1000 - 1.01) / 1.01 * 100
     assert worst < 10**8
+
+
+@pytest.mark.critical
+def test_partition_policy_is_utc_and_applied_migrations_are_untouched():
+    """Incidente del 2026-10-01: los limites de las particiones deben ser UTC explicitos.
+
+    La correccion va en la migracion 005. La 002, ya aplicada, no se edita: lo
+    garantiza su checksum en schema_migration, y aqui se fija que conserva la
+    definicion antigua (fechas sin zona) como historia.
+    """
+    migrations = {m.version: m for m in discover()}
+    legacy = migrations[2].sql
+    assert "FOR VALUES FROM (%L) TO (%L)" in legacy
+    assert "utc_month_bounds" not in legacy
+
+    fixed = migrations[5].sql
+    assert "CREATE OR REPLACE FUNCTION ensure_month_partition" in fixed
+    assert "AT TIME ZONE 'UTC'" in fixed
+    assert "|| '+00'" in fixed  # literales con desplazamiento explicito
+    assert "TRUNCATE" not in fixed.upper()
