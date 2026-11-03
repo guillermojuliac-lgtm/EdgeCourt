@@ -163,3 +163,34 @@ empezado. Restringida a mercados con inicio publicado anterior a *ahora − 12 h
   mercado extra cruzó el umbral de 12 h entre ambas mediciones).
 - **Toda la historia (476 mercados):** 288 fiables, 107 no fiables y 81 sin cierre. La referencia
   fue el juego observado en 7 mercados y el inicio publicado en 469.
+
+## 10. Consulta puntual a la API sobre los casos C1 (2026-11-03, autorizada por el responsable)
+
+**Qué se hizo.** Una sesión de solo lectura aparte de la del collector (login y logout propios), con
+dos operaciones de lectura ya permitidas: `listMarketBook` **sin datos de precios** (estado del
+mercado) y `listMarketCatalogue` filtrado por `marketIds`. Sobre 33 mercados: los 28 de C1 y 5
+controles fiables recientes. No se escribió nada y el collector no se vio afectado (0 ciclos
+fallidos, 10 completados y 0 errores de sesión en los 10 min posteriores).
+
+**Resultado: no concluyente.**
+- `listMarketCatalogue` devolvió **0** mercados (los cerrados ya no se listan).
+- `listMarketBook` devolvió solo **7 de 33**: Betfair conserva los libros de mercados cerrados
+  apenas uno o dos días. De los 28 C1 solo 2 (ambos del 2-nov) seguían disponibles.
+- Esos 2 C1 y los 4 controles devueltos tienen el **mismo estado final**: `CLOSED`, `inplay = true`,
+  con ganador y perdedor. Es decir, los C1 **sí se jugaron** con normalidad, pero la respuesta
+  **no indica cuándo pasaron a juego** (no hay campo de hora de inicio ni de paso a juego).
+- Un C1 con 199 min de distancia (2-nov) no se devolvió; **no se sabe por qué** (aplazado,
+  retirado u otra causa).
+
+**Qué descarta y qué no.**
+- Los C1 no son mercados anulados o inexistentes: los 2 comprobados se jugaron.
+- La causa del hueco (partido anticipado, inicio adelantado en el catálogo, otra) **sigue sin
+  verificarse**, y una consulta posterior no puede resolverla: la API no conserva ni expone ese
+  dato. Solo se puede observar **en el momento**, es decir, con el Paso 2 o con un sondeo
+  prospectivo de solo lectura que siga unos mercados reales alrededor de su hora de inicio.
+
+**Consecuencia para el Paso 2.** Sigue **sin autorizar**. La mejora máxima esperable es el 9,4 %
+(C1) y la hipótesis que la justificaría no está demostrada. Opciones, a decidir por el responsable:
+dejarlo aparcado y medir con la vista sobre datos nuevos; o un sondeo prospectivo acotado (sin
+tocar el collector) antes de decidir.
+

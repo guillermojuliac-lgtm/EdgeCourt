@@ -149,7 +149,9 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
      publicado (233 de 288, mercados terminados). Causas de los demás en el
      [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md) §8.
    - **Paso 2** (tocar el collector para ver la transición a juego): **sin autorizar**; como
-     mucho mejoraría el 9,4 % de casos cuya causa no está verificada.
+     mucho mejoraría el 9,4 % de casos. La consulta puntual a la API (3-nov) **no pudo aclarar la
+     causa**: la API no conserva ni expone cuándo pasó a juego un mercado ya cerrado
+     ([plan §10](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md)).
 
 ## Decisiones abiertas
 
