@@ -20,7 +20,7 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 | ID | Decisión | Estado |
 |---|---|---|
 | [DEC-001](#dec-001) | Solo paper betting; sin ninguna vía de apuestas reales | Vigente |
-| [DEC-002](#dec-002) | Objetivo inicial: individuales ATP, pre-partido | Vigente (implícita) · **en revisión** desde 3.5-C |
+| [DEC-002](#dec-002) | Objetivo inicial: individuales ATP, pre-partido | **Sustituida por [DEC-020](#dec-020)** (2026-11-03) |
 | [DEC-003](#dec-003) | El proyecto intenta refutar la hipótesis; criterio de éxito fijado de antemano | Vigente |
 | [DEC-004](#dec-004) | PostgreSQL como fuente de verdad operativa | Vigente |
 | [DEC-005](#dec-005) | Parquet (+ DuckDB) para histórico y ML; Parquet de Betfair solo por exportación | Vigente |
@@ -38,6 +38,7 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 | [DEC-017](#dec-017) | Python 3.13 gestionado por `uv`; stdlib antes que dependencias | Vigente |
 | [DEC-018](#dec-018) | TennisMyLife como fuente primaria; mirror de Sackmann solo como contraste | Vigente |
 | [DEC-019](#dec-019) | Particionado mensual de PostgreSQL en UTC explícito | Vigente |
+| [DEC-020](#dec-020) | Objetivo ATP individual prematch sobre el catálogo `.es`, declarado parcial; 3.5-B se desbloquea | Vigente |
 
 ---
 
@@ -68,7 +69,8 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 <a id="dec-002"></a>
 ### DEC-002 — Objetivo inicial: individuales ATP, pre-partido
 
-- **Fecha:** 2026-09-18 (se deduce de PHASE 1 y PHASE 8) · **Estado:** Vigente (implícita)
+- **Fecha:** 2026-09-18 (se deduce de PHASE 1 y PHASE 8) · **Estado:** **Sustituida por
+  [DEC-020](#dec-020)** (2026-11-03). El texto siguiente se conserva como histórico.
 - **Contexto:** hay que acotar qué partidos puede predecir el modelo.
 - **Decisión (tal como está implementada):**
   - El dataset histórico es **solo ATP individual**: 113.544 partidos de TennisMyLife ATP,
@@ -460,6 +462,61 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 
 ---
 
+<a id="dec-020"></a>
+### DEC-020 — Objetivo ATP individual prematch sobre el catálogo `.es`, declarado parcial
+
+- **Fecha:** 2026-11-03 · **Estado:** Vigente (aceptada por el responsable el 2026-11-03) ·
+  **Sustituye a:** [DEC-002](#dec-002), que se conserva sin reescribir
+- **Contexto:**
+  - DEC-002 fijó el objetivo (individuales ATP, prematch) sin formular su razón, y se puso en
+    revisión con la [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md): en 9 días
+    el catálogo `.es` no devolvió ningún ATP regular.
+  - [3.5-C2](investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados) cerró el
+    2026-11-03 con cobertura 960/960 y **resultado A con matices**: ATP Shanghái (Masters 1000)
+    132 individuales; ATP Pekín 3 de ~31; ATP Tokio 0; Challenger 0. Calidad en la última hora
+    previa: BACK y LAY ≈ 97 %, spread del favorito P50 3,6–4,2 % (Delayed Key).
+- **Decisión (propuesta):**
+  - El objetivo sigue siendo **individuales ATP, pre-partido**. El resultado de C2 no justifica
+    abandonarlo.
+  - La fuente aceptada es el catálogo que sirve Betfair a la cuenta `.es`, con la Application Key
+    Delayed actual, **declarada parcial y dependiente del torneo**: la disponibilidad no puede
+    suponerse y se mide por torneo.
+  - Todo resultado de evaluación (calibración, CLV, ROI) se reporta **con el número de partidos y
+    los torneos de los que procede**. No se extrapola de un torneo a otro ni se presenta una
+    muestra de un solo torneo como representativa del mercado.
+  - El collector sigue capturando todo `MATCH_ODDS` de tenis, sin filtrar (consistente con
+    [DEC-007](#dec-007)); el filtrado a ATP individual se aplica al consultar.
+  - **3.5-B queda desbloqueada y pasa a prioridad.** Esta decisión no define el closing price:
+    la definición es una decisión propia, que se escribirá en `DECISIONS.md` **antes** de tocar
+    el collector, con plan previo para revisión.
+- **Razón:**
+  - La hipótesis a refutar ([DEC-003](#dec-003)) solo puede evaluarse con mercado real de ATP, y
+    `.es` lo ofrece, aunque de forma desigual.
+  - El CLV es la señal de nivel 1 que no necesita ~4 años de muestra (`METRICS.md`), y exige un
+    cierre fiable: cada semana sin él es muestra no recuperable (R4).
+  - Declarar la parcialidad evita que una conclusión herede una cobertura que no tiene.
+- **Alternativas consideradas:**
+  - mantener DEC-002 sin cambios: descartada, porque deja sin registrar que la fuente es parcial;
+  - cambiar de fuente o de alcance (otra cuenta o jurisdicción, otro segmento): C2 no aporta
+    evidencia a su favor y queda fuera de lo que el proyecto puede hacer hoy;
+  - aplazar 3.5-B hasta ver más torneos: descartada, por el coste en muestra de cierre.
+- **Consecuencias:**
+  - 3.5-B se planifica y, tras revisión, se implementa (migración nueva si hay esquema; sin
+    reescribir observaciones existentes).
+  - Los informes por torneo pasan a ser obligatorios en cualquier análisis de mercado.
+  - El volumen disponible condiciona cuándo hay muestra suficiente; no se fija una fecha.
+- **No verificado (no se afirma en esta decisión):** por qué Betfair publica unos partidos y otros
+  en `.es`; si la oferta de Shanghái se repetirá en otros Masters 1000 o ATP 500; calendarios
+  oficiales de Tokio, Shanghái y WTA (solo ATP Pekín confirmado); comparación con otra jurisdicción.
+- **Revisar si:** el collector, durante dos o más torneos ATP posteriores, ofrece un volumen
+  claramente inferior al de Shanghái; cambia el catálogo `.es` o el tipo de Application Key; o
+  3.5-B concluye que no puede obtenerse un cierre fiable con datos retrasados.
+- **Fuente:** [Resultados de C2](investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados),
+  [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md),
+  [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
+---
+
 ## Hechos verificados sin una decisión documentada
 
 Son ciertos hoy, pero **no** hay ningún documento, commit ni instrucción que explique su porqué.
@@ -476,8 +533,7 @@ asigna un DEC.
 
 | Tema | Dónde |
 |---|---|
-| **Fuente de mercado y alcance realista** con la cuenta `.es` (viabilidad de [DEC-002](#dec-002)) | Surge de la [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md). La decide el responsable del proyecto |
-| Definición de closing price (prioridad supeditada a la anterior) | Phase 3.5-B |
+| Definición de closing price (desbloqueada y prioritaria por [DEC-020](#dec-020)); se escribirá **antes** de tocar el collector, con plan previo | Phase 3.5-B |
 | Intervalo de `keepAlive` | Phase 3.5-A |
 | Uno o dos procesos de larga duración (D9) | `docs/ARCHITECTURE.md`, PHASE 15 del plan |
 | Método de desvigado y convención de signo del CLV | `docs/METRICS.md` (se fijará en la fase de Value/CLV) |

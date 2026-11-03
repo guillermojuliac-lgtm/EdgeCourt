@@ -100,8 +100,8 @@ El collector (8) se adelantó el 2026-09-18 porque cada semana sin recolectar es
   - Incidentes de datos corregidos: [desbordamiento de `max_spread_pct`](audits/2026-09-spread-overflow-incident.md)
     (30-sep) y [particiones en hora de Madrid](audits/2026-10-partition-timezone-incident.md)
     (5-oct, 109,6 h sin persistir). Política de particionado UTC ([DEC-019](DECISIONS.md#dec-019)).
-- **Bloqueo interno:** hace falta decidir la fuente de mercado y el alcance realista antes de
-  priorizar 3.5-B.
+- **Decisión tomada (2026-11-03):** [DEC-020](DECISIONS.md#dec-020) mantiene el objetivo ATP
+  individual prematch sobre `.es`, declarado parcial, y **desbloquea 3.5-B**, ahora prioritaria.
 - **Criterio de salida y detalle:** [`phases/PHASE_03_5_MARKET_VALIDATION.md`](phases/PHASE_03_5_MARKET_VALIDATION.md).
 
 ---

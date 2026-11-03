@@ -8,6 +8,18 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — DEC-020: objetivo ATP prematch sobre `.es`, declarado parcial; 3.5-B desbloqueada
+
+- **Cambio:** solo documentación. Se acepta [DEC-020](DECISIONS.md#dec-020), que **sustituye a
+  DEC-002** (conservada como histórico). Se actualizan `PROJECT_STATUS.md`, `ROADMAP.md` y el
+  documento de la fase.
+- **Motivo:** C2 mostró que `.es` ofrece ATP de forma muy desigual (Shanghái 132 individuales, Pekín
+  3, Tokio 0). El objetivo se mantiene, con la fuente declarada parcial y los resultados reportados
+  por torneo.
+- **Siguiente:** 3.5-B pasa a prioridad. Plan previo y definición del closing price en
+  `DECISIONS.md` **antes** de tocar el collector.
+- **Commit:** `docs: accept DEC-020 ...` (ver `git log`).
+
 ## 2026-11-03 — Cierre de 3.5-C2: el catálogo `.es` ofrece ATP, de forma muy desigual
 
 - **Cambio:** ninguno en código. Revisión final de solo lectura de la ventana completa
@@ -23,7 +35,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   - Los 85 mercados que no están en `betfair_market` empezaron antes de la recuperación del
     collector (5-oct 13:17 UTC): sin problema de descubrimiento.
 - **Calendarios oficiales:** ATP Pekín confirmado (se jugó 30-sep → 6-oct). **NO VERIFICADO:** Tokio, Shanghái y WTA (requisito de validez del protocolo), causa de la
-  oferta desigual, naturaleza de los 24 mercados de Shanghái del 5-oct. **DEC-002 sin modificar.**
+  oferta desigual, naturaleza de los 24 mercados de Shanghái del 5-oct. DEC-002 se sustituye después, en DEC-020.
 - **Estado del collector (misma revisión):** `active` desde el 1-nov, ~41.000 ciclos y 11 fallidos
   (DNS puntual) desde el 5-oct, watchdog sin actuar.
 - **Timer de C2 desactivado** por el responsable el mismo día (verificado `disabled` / `inactive`).

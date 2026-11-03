@@ -142,20 +142,18 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 3. **Phase 3.5-A: DONE** (2026-09-30).
    - Más de 24 h superadas: unas 69 h revisadas.
    - 0 `INVALID_SESSION_INFORMATION`, 268 keepAlive correctos y 0 fallos de autenticación.
-4. **Phase 3.5-B:** closing price, **con la prioridad supeditada al punto 1**.
+4. **Phase 3.5-B: desbloqueada y prioritaria** ([DEC-020](DECISIONS.md#dec-020)). Siguiente paso:
+   plan que responda las cinco preguntas de la fase y definición del closing price en
+   `DECISIONS.md`, para revisión **antes** de tocar el collector.
 
 ## Decisiones abiertas
 
-- **Fuente de mercado y alcance realista.** Con la cuenta `.es`, ¿es viable el objetivo ATP
-  prematch ([DEC-002](DECISIONS.md#dec-002))? Es la decisión que condiciona todo lo demás.
-- Definición de closing price (3.5-B).
+- Definición de closing price (3.5-B), ya prioritaria.
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).
 - Uno o dos procesos de larga duración (D9).
-- **DEC-002 (objetivo ATP prematch):** C2 ha cerrado. El objetivo ATP **no queda descartado por
-  disponibilidad** (Shanghái, un Masters 1000, se ofreció en volumen), pero la oferta es muy
-  desigual entre torneos (Pekín 3, Tokio 0). Se mantiene **sin reformular**; queda pendiente la
-  decisión del responsable. Resueltas: monitorización (watchdog, validado) y backfill 1–5-oct (NO
-  REALIZAR).
+- **Resueltas:** fuente de mercado y alcance ([DEC-020](DECISIONS.md#dec-020), que sustituye a
+  DEC-002, aceptada el 2026-11-03: ATP individual prematch sobre `.es`, declarado parcial y
+  dependiente del torneo), monitorización (watchdog, validado) y backfill 1–5-oct (NO REALIZAR).
 - Propuesta no registrada: entrada en `DECISIONS.md` sobre no rellenar huecos del collector con
   datos de otra fuente o resolución.
 

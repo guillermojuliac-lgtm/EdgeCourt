@@ -300,9 +300,11 @@ definición fiable de closing price, **antes** de basar Value o CLV en estos dat
 | 2026-10-05 | Revisión de C2: 313/313 slots; **`.es` ofrece ATP de forma parcial** (ATP Pekín 3 mercados, ATP Shanghái 44; ATP Tokyo y Challenger 0). Se detecta que el collector llevaba ~109 h sin persistir | este documento |
 | 2026-10-05 | Incidente de particionado por zona horaria corregido: migración 005, política UTC (DEC-019) | [incidente](../audits/2026-10-partition-timezone-incident.md) |
 | 2026-10-05 | Watchdog de systemd del collector (`WatchdogSec=1200`), validado en producción | [auditoría](../audits/2026-10-collector-watchdog.md) |
-| 2026-11-03 | **3.5-C2 cerrado**: 960/960 slots; resultado A con matices (Shanghái 132 individuales, Pekín 3, Tokio 0, Challenger 0). DEC-002 sin modificar | [resultados](../investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados) |
+| 2026-11-03 | **3.5-C2 cerrado**: 960/960 slots; resultado A con matices (Shanghái 132 individuales, Pekín 3, Tokio 0, Challenger 0). Se acepta [DEC-020](../DECISIONS.md#dec-020), que sustituye a DEC-002 y desbloquea 3.5-B | [resultados](../investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados) |
 
-## Pendiente de decisión (surgida de 3.5-C)
+## Decisión (surgida de 3.5-C): resuelta el 2026-11-03
+
+> Resuelta por [DEC-020](../DECISIONS.md#dec-020). Se conserva el texto original como histórico.
 
 - **Fuente de mercado y alcance realista.** ¿Se acepta el catálogo `.es`? ¿Se observa primero su
   evolución longitudinal en semanas ATP 500/1000? ¿Se consideran otras vías legales? Lo decide el
