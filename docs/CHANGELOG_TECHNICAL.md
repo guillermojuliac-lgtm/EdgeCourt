@@ -8,6 +8,20 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — 3.5-B, Pasos 0 y 1: precio de cierre (DEC-021)
+
+- **Cambio:**
+  - [DEC-021](DECISIONS.md#dec-021): definición del cierre (última observación pre-play con precios
+    anterior a la primera señal de juego; fiable si ≤ 5 min de la referencia de inicio).
+  - Migración `006_market_closing_observation.sql`: solo crea la vista `market_closing_observation`.
+  - `repositories.closing_observations` / `closing_summary` (solo lectura).
+  - 13 tests de integración nuevos. Sin cambios en el collector, la cadencia ni los datos.
+- **Paso 0 (diagnóstico):** de 288 mercados terminados con precios, 233 (80,9 %) tienen el cierre a
+  ≤ 5 min del inicio publicado. Los 55 restantes: libro vacío antes del inicio (23), el catálogo
+  deja de listarlos antes (27, causa **no verificada**) y aplazados (5).
+- **Pendiente:** aplicar la migración 006 en producción (responsable). **Paso 2 sin autorizar.**
+- **Docs:** [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md).
+
 ## 2026-11-03 — DEC-020: objetivo ATP prematch sobre `.es`, declarado parcial; 3.5-B desbloqueada
 
 - **Cambio:** solo documentación. Se acepta [DEC-020](DECISIONS.md#dec-020), que **sustituye a

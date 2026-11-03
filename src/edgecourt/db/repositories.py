@@ -319,6 +319,49 @@ def load_market_states(cursor: psycopg.Cursor, market_ids: list[str]) -> dict[st
     return states
 
 
+def closing_observations(
+    cursor: psycopg.Cursor, *, started_before: datetime | None = None
+) -> list[dict[str, Any]]:
+    """Cierre de cada mercado segun DEC-021 (vista `market_closing_observation`).
+
+    Solo lectura. `started_before` limita a mercados cuyo inicio publicado es
+    anterior a ese instante; sin el, los mercados que aun no han empezado
+    aparecen como «no fiables» sin serlo.
+    """
+    sql = """
+        SELECT v.*, m.market_start_time
+        FROM market_closing_observation v
+        JOIN betfair_market m USING (market_id)
+    """
+    params: tuple[Any, ...] = ()
+    if started_before is not None:
+        sql += " WHERE m.market_start_time < %s"
+        params = (started_before,)
+    cursor.execute(sql + " ORDER BY v.market_id", params)
+    return cursor.fetchall()
+
+
+def closing_summary(
+    cursor: psycopg.Cursor, *, started_before: datetime | None = None
+) -> dict[str, int]:
+    """Recuento de mercados con cierre fiable, no fiable y sin cierre."""
+    sql = """
+        SELECT count(*)                                           AS markets,
+               count(*) FILTER (WHERE close_reliable)             AS reliable,
+               count(*) FILTER (WHERE close_reliable IS FALSE)    AS unreliable,
+               count(*) FILTER (WHERE closing_observation_id IS NULL) AS no_close
+        FROM market_closing_observation v
+        JOIN betfair_market m USING (market_id)
+    """
+    params: tuple[Any, ...] = ()
+    if started_before is not None:
+        sql += " WHERE m.market_start_time < %s"
+        params = (started_before,)
+    cursor.execute(sql, params)
+    row = cursor.fetchone()
+    return {key: int(row[key]) for key in ("markets", "reliable", "unreliable", "no_close")}
+
+
 def _utc_month_start(moment: datetime) -> date:
     """Primer dia del mes UTC de `moment`. Un datetime sin zona se interpreta como UTC."""
     utc = moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)

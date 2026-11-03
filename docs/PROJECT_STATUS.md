@@ -142,9 +142,14 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 3. **Phase 3.5-A: DONE** (2026-09-30).
    - Más de 24 h superadas: unas 69 h revisadas.
    - 0 `INVALID_SESSION_INFORMATION`, 268 keepAlive correctos y 0 fallos de autenticación.
-4. **Phase 3.5-B: desbloqueada y prioritaria** ([DEC-020](DECISIONS.md#dec-020)). Siguiente paso:
-   plan que responda las cinco preguntas de la fase y definición del closing price en
-   `DECISIONS.md`, para revisión **antes** de tocar el collector.
+4. **Phase 3.5-B: en curso** ([DEC-020](DECISIONS.md#dec-020), [DEC-021](DECISIONS.md#dec-021)).
+   - Pasos 0 y 1 **hechos**: definición del cierre aprobada, vista `market_closing_observation`
+     (migración 006) y tests. **Pendiente: aplicar la migración 006 en producción.**
+   - Línea base: 80,9 % de los mercados con precios tienen el cierre a ≤ 5 min del inicio
+     publicado (233 de 288, mercados terminados). Causas de los demás en el
+     [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md) §8.
+   - **Paso 2** (tocar el collector para ver la transición a juego): **sin autorizar**; como
+     mucho mejoraría el 9,4 % de casos cuya causa no está verificada.
 
 ## Decisiones abiertas
 

@@ -39,6 +39,7 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 | [DEC-018](#dec-018) | TennisMyLife como fuente primaria; mirror de Sackmann solo como contraste | Vigente |
 | [DEC-019](#dec-019) | Particionado mensual de PostgreSQL en UTC explícito | Vigente |
 | [DEC-020](#dec-020) | Objetivo ATP individual prematch sobre el catálogo `.es`, declarado parcial; 3.5-B se desbloquea | Vigente |
+| [DEC-021](#dec-021) | Definición del precio de cierre (closing price) | Vigente |
 
 ---
 
@@ -517,6 +518,47 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 
 ---
 
+<a id="dec-021"></a>
+### DEC-021 — Definición del precio de cierre (closing price)
+
+- **Fecha:** 2026-11-03 · **Estado:** Vigente (definición aprobada por el responsable el
+  2026-11-03, antes de ver resultados de CLV) · **Fase:** 3.5-B, Paso 1
+- **Contexto:** el hito `snapshot_label = 'close'` no es un cierre: se captura una vez contra una
+  hora de inicio que cambia en el 80 % de los mercados (272 de 342 desde el 5-oct), y el cierre
+  efectivo lo da la cadencia `adaptive`
+  ([plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md)). El CLV necesita una definición única.
+- **Decisión:**
+  - **Cierre de un mercado** = la observación con mayor `observed_at` entre las que cumplen
+    `market_status = 'OPEN'`, `inplay = false` y `has_prices`, y cuyo `observed_at` es anterior a
+    la primera observación del mercado con `inplay = true` o `market_status` distinto de `OPEN`
+    (si existe).
+  - **Referencia de inicio** = la primera observación con `inplay = true` si existe; si no, el
+    último inicio publicado (`betfair_market.market_start_time`). `close_gap_min` = minutos entre
+    el cierre y esa referencia.
+  - **Fiable** si `close_gap_min ≤ 5`; si no, **no fiable**: se informa su número y no se descarta
+    ni se sustituye en silencio.
+  - Un mercado **sin observación pre-play con precios no tiene cierre**.
+  - Implementada como la vista `market_closing_observation` (migración 006) y consultable con
+    `repositories.closing_observations` / `closing_summary`. Se puede aplicar a toda la historia.
+- **Razón:** una definición basada en la transición a juego, y no en la hora publicada, resiste los
+  retrasos; y declarar la fiabilidad evita que un cierre lejano contamine el CLV.
+- **Alternativas consideradas:** «última observación dentro de N min del inicio final»
+  (descartada: depende de la hora publicada, que es inestable); conservar el hito `close`
+  (descartada: no es un cierre); descartar los no fiables (descartada: oculta el tamaño del
+  problema).
+- **Consecuencias:**
+  - El hito `close` histórico se conserva tal cual y se documenta que no es un cierre.
+  - Tolerancia de 5 min compatible con el retraso de la Delayed Key (1–180 s).
+  - Limitación: sin transición a juego observada, el «inicio real» es el último publicado, que es
+    inestable. El desvigado y el signo del CLV siguen abiertos.
+  - **Paso 2** (ver la transición a juego, tocando el collector) sigue **sin autorizar**.
+- **Revisar si:** la proporción de no fiables sobre datos nuevos es alta, o cambia el tipo de
+  Application Key.
+- **Fuente:** `migrations/006_market_closing_observation.sql`,
+  `src/edgecourt/db/repositories.py`, `tests/test_market_closing_observation.py`.
+
+---
+
 ## Hechos verificados sin una decisión documentada
 
 Son ciertos hoy, pero **no** hay ningún documento, commit ni instrucción que explique su porqué.
@@ -533,7 +575,7 @@ asigna un DEC.
 
 | Tema | Dónde |
 |---|---|
-| Definición de closing price (desbloqueada y prioritaria por [DEC-020](#dec-020)); se escribirá **antes** de tocar el collector, con plan previo | Phase 3.5-B |
+| Paso 2 de 3.5-B (ver la transición a juego, tocando el collector): condicionado y **sin autorizar** | Phase 3.5-B |
 | Intervalo de `keepAlive` | Phase 3.5-A |
 | Uno o dos procesos de larga duración (D9) | `docs/ARCHITECTURE.md`, PHASE 15 del plan |
 | Método de desvigado y convención de signo del CLV | `docs/METRICS.md` (se fijará en la fase de Value/CLV) |
