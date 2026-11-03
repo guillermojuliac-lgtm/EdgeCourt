@@ -8,6 +8,18 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — Carril A, A2: identidad de jugadores y superficie del torneo
+
+- **Cambio:** paquete nuevo `identity/` (`players.py`, `tournaments.py`, `service.py`), comando
+  `edgecourt identity resolve [--apply]` y dos funciones de repositorio (`runners_for_identity`,
+  `set_runner_player_id`, que solo rellena vacíos). Sin migración ni cambios en el collector.
+- **Resultado (informe, sin escribir):** 156 mercados ATP individuales listos y 312 de 312 runners
+  resueltos, tras confirmar el responsable el alias «Manuel Cerundolo» = C0C8 (antes: 151 y 307).
+- **Verificación:** `ruff` limpio. Tests (18) **escritos y no ejecutados**: diferidos a
+  `/validar-todo`. La base operativa no se ha modificado.
+- **Pendiente:** ejecutar `uv run edgecourt identity resolve --apply` (lo hace el responsable; la
+  escritura fue denegada por permisos desde la sesión), commit y `/validar-todo`.
+
 ## 2026-11-03 — Carril A, A1: datos al día y features «a fecha de hoy»
 
 - **Cambio:**

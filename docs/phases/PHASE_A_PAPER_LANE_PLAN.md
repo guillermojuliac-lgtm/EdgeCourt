@@ -1,7 +1,7 @@
 # Plan del Carril A — Paper betting operativo
 
 > **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; A0 HECHO (estrategia v1
-> congelada como provisional); A1 IMPLEMENTADO (pendiente de commit y de `/validar-todo`). Siguiente paso: A2.** El Carril B (estudio
+> congelada como provisional); A1 COMMITEADO (`f17a7c1`, pendiente de `/validar-todo`); A2 IMPLEMENTADO (alias de Cerundolo confirmado; `--apply` pendiente de ejecutar por el responsable). Siguiente paso: A3.** El Carril B (estudio
 > y mejora) sigue su propio ritmo; este plan no lo toca. **Dinero real: fuera de alcance**
 > ([DEC-001](../DECISIONS.md#dec-001)).
 
@@ -176,4 +176,28 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
   confirmar el cambio porque toca `builder.py` y `elo.py`, que alimentan el entrenamiento.
 - **El modelo no se ha reentrenado:** sigue siendo el del 18-sep (entrenado hasta 2022); decidir si
   reentrenar es del carril B / A3.
+
+## 12. Resultado de A2 (2026-11-03): identidad de jugadores
+
+- **Datos de Betfair:** `betfair_runner.runner_name` trae el **nombre completo** («Alexander
+  Zverev»); es el nombre abreviado de los *eventos* («A Zverev v …») el que no sirve. Se usa el del
+  runner.
+- **Reglas** (`identity/players.py`), deterministas y sin fuzzy silencioso: (1) alias revisado por
+  una persona; (2) nombre normalizado **exacto** (sin acentos, guiones ni mayúsculas) entre los
+  jugadores **activos** (partido en los últimos 3 años); (3) un candidato = resuelto, varios =
+  ambiguo, ninguno = sin coincidencia. Los dudosos se descartan y se cuentan; se listan candidatos
+  por apellido **solo para revisar**, no se aplican.
+- **Superficie** (`identity/tournaments.py`): «ATP Shanghai 2026» → clave «shanghai» → superficie de
+  las últimas 3 ediciones del dataset, solo si coinciden. Fuera de alcance en v1: Copa Davis, Laver
+  Cup, ITF, WTA, Grand Slams y dobles.
+- **Resultado en la base operativa** (informe, solo lectura): 477 mercados → 42 dobles, 279 fuera de
+  alcance (WTA, Copas, ITF) y el resto ATP individual. Antes del alias: 151 listos y 5 sin resolver
+  (todos «Manuel Cerundolo»; candidatos C0AU Francisco y C0C8 Juan Manuel Cerundolo).
+  **Alias confirmado por el responsable el 2026-11-03** («Manuel Cerundolo» = C0C8). Con él:
+  **156 mercados listos y 312 de 312 runners resueltos.**
+- **Escritura:** `edgecourt identity resolve --apply` rellena `betfair_runner.player_id` **solo si
+  está vacío** (nunca sobrescribe) y es idempotente. **Pendiente de ejecutar por el responsable**:
+  el sistema de permisos denegó la escritura en la base operativa desde la sesión de Claude. La base
+  no se ha modificado.
+- **Tests escritos, no ejecutados:** `tests/test_identity.py` (18). Diferidos a `/validar-todo`.
 
