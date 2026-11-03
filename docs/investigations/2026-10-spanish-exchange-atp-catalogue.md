@@ -332,3 +332,6 @@ recuperación falta**: no hay problema de descubrimiento del collector.
 El timer `edgecourt-catalogue-audit.timer` sigue activo tras el 19-oct; el comando no llama a
 Betfair fuera de la ventana (§9), por lo que no genera datos nuevos. Desactivarlo requiere
 `sudo systemctl disable --now edgecourt-catalogue-audit.timer` (§9) y lo ejecuta el responsable.
+
+**Actualización (2026-11-03):** el responsable lo desactivó ese mismo día; verificado `disabled` e
+`inactive`, sin ninguna entrada en `systemctl list-timers`. La unidad `.service` sigue instalada.

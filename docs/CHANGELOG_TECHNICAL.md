@@ -26,7 +26,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   oferta desigual, naturaleza de los 24 mercados de Shanghái del 5-oct. **DEC-002 sin modificar.**
 - **Estado del collector (misma revisión):** `active` desde el 1-nov, ~41.000 ciclos y 11 fallidos
   (DNS puntual) desde el 5-oct, watchdog sin actuar.
-- **Pendiente:** desactivar el timer de C2 (`sudo`, lo ejecuta el responsable). Sin commit.
+- **Timer de C2 desactivado** por el responsable el mismo día (verificado `disabled` / `inactive`).
 - **Docs:** [Resultados](investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados),
   [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
 

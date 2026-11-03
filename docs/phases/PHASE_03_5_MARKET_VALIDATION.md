@@ -181,7 +181,7 @@ cliente y las mismas garantías (ver `docs/BETFAIR_SETUP.md`, apartado *Garantí
 > | Campo | Valor |
 > |---|---|
 > | C2 | IMPLEMENTED (commit `eb3949f`) |
-> | Timer | INSTALLED; sigue activo pero sin efecto fuera de la ventana (pendiente de desactivar) |
+> | Timer | INSTALLED; **desactivado el 2026-11-03** (`disabled` / `inactive`) |
 > | Experimento | **DONE** |
 > | Cobertura | 960/960 slots (100 %) |
 > | Resultado | **A**: `.es` ofrece ATP 500/1000, de forma muy desigual. **Shanghái 132 individuales, Pekín 3, Tokio 0, Challenger 0**. Detalle y NO VERIFICADO en [Resultados](../investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados) |

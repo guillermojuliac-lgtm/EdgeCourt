@@ -135,9 +135,8 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
    - **Calendarios oficiales:** ATP Pekín **confirmado** (30-sep → 6-oct, final Djokovic v De
      Minaur); Tokio, Shanghái y WTA **NO VERIFICADO** (faltan las URLs correctas de atptour.com
      y un calendario WTA legible).
-   - **Pendiente:** desactivar el timer, que sigue activo pero no
-     genera datos fuera de la ventana
-     (`sudo systemctl disable --now edgecourt-catalogue-audit.timer`).
+   - **Timer desactivado el 2026-11-03** (`disabled` / `inactive`, verificado). La unidad
+     `.service` queda instalada.
    - [Protocolo y resultados](investigations/2026-10-spanish-exchange-atp-catalogue.md).
    - El collector sigue recogiendo en paralelo (3.5-D).
 3. **Phase 3.5-A: DONE** (2026-09-30).
