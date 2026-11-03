@@ -8,6 +8,16 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — DEC-022: dos carriles, estudio y paper operativo
+
+- **Cambio:** solo documentación. Se acepta [DEC-022](DECISIONS.md#dec-022), que **sustituye
+  parcialmente a DEC-015** (conservada como histórico) y define el carril A (paper mínimo, ATP
+  individual prematch) en paralelo al carril B (estudio). Nuevo
+  [plan del carril A](phases/PHASE_A_PAPER_LANE_PLAN.md) con pasos A0–A7.
+- **Motivo:** el responsable quiere ver resultados con dinero ficticio sin esperar a que termine el
+  estudio. DEC-001 (solo paper) no cambia; el dinero real exigiría otra DEC.
+- **Pendiente:** fijar la estrategia v1 (A0). Nada de código todavía.
+
 ## 2026-11-03 — 3.5-B, Pasos 0 y 1: precio de cierre (DEC-021)
 
 - **Cambio:**

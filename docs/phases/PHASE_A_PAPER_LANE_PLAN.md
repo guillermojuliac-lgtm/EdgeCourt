@@ -1,0 +1,152 @@
+# Plan del Carril A — Paper betting operativo
+
+> **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; plan en revisión, nada
+> implementado. Siguiente paso: A0 (fijar la estrategia v1).** El Carril B (estudio
+> y mejora) sigue su propio ritmo; este plan no lo toca. **Dinero real: fuera de alcance**
+> ([DEC-001](../DECISIONS.md#dec-001)).
+
+## 1. Objetivo
+Ver, desde la terminal, apuestas **ficticias** de tenis (ATP individual prematch) colocadas con
+una estrategia fijada de antemano, liquidadas con el resultado real y medidas contra el cierre
+(CLV). Es una línea mínima de extremo a extremo: sirve para descubrir fallos operativos y para
+empezar a acumular muestra. **No** es una prueba de ventaja (ver §8).
+
+## 2. Qué existe y qué falta (verificado en el código)
+
+| Pieza | Estado |
+|---|---|
+| Collector, precios con retraso, cierre medible (DEC-021) | ✅ en producción |
+| Tablas `prediction`, `paper_bet`, `bet_settlement` (inmutables, con cadena de hashes) | ✅ existen, vacías |
+| Modelo de regresión logística (2 en `models/challenger/`, ninguno promovido) | ✅ entrenado el 18-sep |
+| Límites de riesgo en `config.py` (bankroll 1.000, stake ≤ 1 %, exposición diaria ≤ 5 %, por mercado ≤ 2 %, drawdown 20 %, Kelly ≤ 0,25) | ✅ validados, sin uso |
+| `paper/`, `risk/`, `value/`, `notifications/` | ❌ vacíos |
+| `betfair_runner.player_id` | ❌ NULL en todas las filas |
+| Datos de partidos | ⚠️ **ingeridos el 18-sep**: hay que refrescarlos para predecir partidos actuales |
+| Features para un partido futuro | ⚠️ el constructor trabaja por lotes sobre el histórico; falta calcular «a fecha de hoy» para una pareja de jugadores |
+| Comandos `predict`, `paper status`, `metrics` | ⚠️ reservados, devuelven «no implementado» |
+
+## 3. Estrategia v1 — a fijar ANTES de la primera apuesta
+
+Cada punto es una **propuesta**; el responsable decide. Una vez fijada, cualquier cambio es la
+versión v2, con su propio historial. Las cifras no son afinadas con datos paper.
+
+| Parámetro | Propuesta | Motivo |
+|---|---|---|
+| Alcance | ATP **individuales**, prematch, mercado `MATCH_ODDS` | [DEC-020](../DECISIONS.md#dec-020) |
+| Lado | Solo `BACK` | Simplifica la liquidez y la responsabilidad |
+| Desvigado | **Abierto**: proporcional, potencia o Shin. Hay que elegir uno | Es una decisión pendiente de `METRICS.md` |
+| Umbral de valor | **Abierto**: edge mínimo después de comisión | Sin elegir con datos paper |
+| Comisión supuesta | La del Exchange español, a confirmar en la cuenta | Entra en el EV después de costes |
+| Momento de apostar | **Abierto**: p. ej. una sola decisión por mercado a X min del inicio | Evita apostar repetidas veces el mismo error |
+| Stake | **Plano** (1 % del bankroll ficticio) | Kelly necesita probabilidades calibradas y estables |
+| Liquidez mínima | `MINIMUM_LIQUIDITY` = 50 ([DEC-012](../DECISIONS.md#dec-012)) | Sin cambios |
+| Una apuesta por mercado | Sí | Evita duplicar exposición |
+| Exclusiones | Jugadores sin identidad segura, sin historial suficiente o sin precios BACK y LAY | Se cuentan y se muestran |
+| Fills | Se asume casado al precio visto en la observación (con retraso) | **Optimista**; se declara |
+
+## 4. Pasos
+
+Tamaños relativos: S (pequeño), M (medio), L (grande). No hay fechas.
+
+### A0 — Decisiones y estrategia v1 · S · solo documentos
+Aceptar DEC-022 y fijar por escrito la estrategia v1 (§3). **Sin código.**
+
+### A1 — Datos al día y features «a fecha de hoy» · M
+- Refrescar el dataset de partidos (fuente TennisMyLife) y automatizar la actualización.
+- Función de features y Elo «a fecha de hoy» para una pareja de jugadores, reutilizando
+  `PlayerHistory` y el Elo existentes; sin ver nunca datos posteriores.
+- Tests: sin fuga temporal, coincide con el constructor por lotes en partidos pasados.
+- **Riesgo:** medio. Si el refresco falla, las predicciones se basan en datos viejos: el estado lo
+  debe mostrar.
+
+### A2 — Identidad de jugadores (Fase 8b) · M
+- Mapeo `betfair_runner.player_id` determinista, **sin fuzzy silencioso**; los dudosos se
+  descartan y se cuentan.
+- Cobertura medida sobre los mercados ATP ya capturados.
+- **CLI:** `edgecourt identity report` (cobertura y descartados).
+- **Dependencia:** A1 (catálogo de jugadores actual).
+
+### A3 — Predicciones · M
+- Promoción **manual** de un modelo a `production` ([DEC-013](../DECISIONS.md#dec-013)) y registro
+  en `model_version`.
+- Tarea que escribe `prediction` para los mercados próximos con identidad resuelta.
+- **CLI:** `edgecourt predict` (hoy reservado).
+- **Dependencias:** A1, A2.
+
+### A4 — Valor y riesgo (funciones puras) · M
+- Desvigado, edge, EV después de comisión y stake plano con los límites de `config.py`
+  (exposición diaria, por mercado, drawdown).
+- Tests de propiedades: nunca supera los límites, nunca stake negativo, determinista.
+- **CLI:** `edgecourt paper candidates` (qué apostaría, **sin escribir nada**).
+
+### A5 — Ledger paper · M
+- Escritura en `paper_bet` con cadena de hashes, libro de precios congelado, idempotencia y una
+  apuesta por mercado.
+- **Migración nueva:** columna de **versión de estrategia** (tablas vacías) y verificación de la
+  cadena de hashes.
+- **CLI:** `edgecourt paper bets`, `edgecourt paper status`.
+
+### A6 — Liquidación y CLV · M
+- Liquidar con el resultado real del mercado (ganador/perdedor). **Atención:** Betfair solo
+  conserva los libros de mercados cerrados **1–2 días**; la liquidación debe ejecutarse **a diario**
+  y avisar si se pierde un resultado.
+- CLV con el cierre de [DEC-021](../DECISIONS.md#dec-021), marcando los cierres no fiables.
+- **CLI:** `edgecourt paper pnl`, `edgecourt paper clv`.
+
+### A7 — Operación diaria · S–M
+- Temporizador de systemd para predecir, apostar en paper y liquidar, con watchdog/estado como el
+  collector. Telegram opcional (resumen diario).
+- Aviso visible cuando algo no se ha ejecutado (sin predicciones, sin liquidar, datos viejos).
+
+## 5. Interfaz de terminal (boceto, no implementado)
+
+```
+$ edgecourt paper status
+PAPER · estrategia v1 · datos retrasados · ejecución supuesta
+  bankroll ficticio      : 1 000,00 → 1 012,40   (drawdown máx. 1,8 %)
+  apuestas               : 14 (11 liquidadas · 3 abiertas)
+  ROI sobre stake        : +3,1 %        (n=11: NO CONCLUYENTE)
+  CLV medio              : +0,8 %        (n=9 cierres fiables · 2 no fiables)
+  último dato de mercado : hace 1 min    · último resultado liquidado: hace 6 h
+  excluidos              : 38 sin identidad · 5 sin precios
+
+$ edgecourt paper bets --open
+  mercado     partido                    precio  stake   edge   inicio
+  1.2649...   Jugador A v Jugador B      2,18    10,00   +4,2%  hoy 14:00
+```
+
+Cada informe repite la etiqueta «paper, datos retrasados, ejecución supuesta» y el tamaño de
+muestra. Una interfaz web, si hace falta, es posterior y opcional.
+
+## 6. Dependencias y orden
+`A0 → A1 → A2 → A3 → A4 → A5 → A6 → A7`. A4 puede empezar en paralelo a A2/A3 porque son
+funciones puras. Cada paso se entrega con tests, documentación y una orden de CLI que se pueda
+ejecutar.
+
+## 7. Qué no se toca
+El collector y sus datos, `MINIMUM_LIQUIDITY`, las migraciones aplicadas, 3.5-B (Paso 2 aparcado) y
+el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
+
+## 8. Qué NO demuestra este carril
+- **Optimismo estructural:** precios con 1–180 s de retraso, sin saber si la apuesta se habría
+  casado y con profundidad mediana de ~20 €. El resultado real sería peor.
+- **Ruido:** con pocas semanas de apuestas, el ROI es ruido. La señal estadística (≈ 8.700 apuestas
+  para el ROI) está lejos; el CLV necesita menos muestra pero depende de un cierre fiable.
+- **Volumen:** la oferta ATP en `.es` es desigual (Shanghái 132 individuales, Pekín 3, Tokio 0);
+  habrá semanas con pocas o ninguna apuesta.
+- Nada de esto autoriza dinero real: eso exigiría una DEC nueva basada en el criterio de
+  [`METRICS.md`](../METRICS.md), la clave Live y código de ejecución que hoy no existe.
+
+## 9. Riesgos
+| Riesgo | Mitigación |
+|---|---|
+| Ajustar la estrategia mirando los resultados paper | Versiones, estrategia por escrito antes, sin cambios retroactivos |
+| Identidad errónea de un jugador | Determinista, dudosos descartados y contados, cobertura visible |
+| Pérdida de resultados por la retención de Betfair | Liquidación diaria con aviso |
+| Predecir con datos viejos | Estado explícito de «antigüedad del dato» |
+| Que el paper interfiera con el collector | Solo lectura sobre sus tablas; proceso separado |
+
+## 10. Pendiente de decidir por el responsable
+1. ~~DEC-022~~ **aceptada el 2026-11-03.**
+2. De la estrategia v1 (§3): desvigado, umbral de valor, comisión y momento de apostar (A0).
+3. ¿Empezamos por A1 (datos al día) o por A2 (identidad), que es lo que más bloquea?

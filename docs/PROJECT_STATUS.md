@@ -155,7 +155,10 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 
 ## Decisiones abiertas
 
-- Definición de closing price (3.5-B), ya prioritaria.
+- **Carril A (paper) — [DEC-022](DECISIONS.md#dec-022) ACEPTADA (2026-11-03):** dos carriles,
+  estudio y paper operativo; sustituye parcialmente a DEC-015. Plan:
+  [`phases/PHASE_A_PAPER_LANE_PLAN.md`](phases/PHASE_A_PAPER_LANE_PLAN.md). **Pendiente:** fijar la
+  estrategia v1 (A0) y elegir el primer paso (A1 datos al día o A2 identidad). Nada implementado.
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).
 - Uno o dos procesos de larga duración (D9).
 - **Resueltas:** fuente de mercado y alcance ([DEC-020](DECISIONS.md#dec-020), que sustituye a

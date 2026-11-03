@@ -33,13 +33,14 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 | [DEC-012](#dec-012) | `MINIMUM_LIQUIDITY` = 50 no se modifica todavía | Temporal |
 | [DEC-013](#dec-013) | Ningún modelo se promueve automáticamente | Vigente |
 | [DEC-014](#dec-014) | Retención de 90 días solo después de un archivo verificado | Vigente (no activada) |
-| [DEC-015](#dec-015) | No avanzar a Phase 4 hasta cerrar Phase 3.5 | Temporal |
+| [DEC-015](#dec-015) | No avanzar a Phase 4 hasta cerrar Phase 3.5 | Temporal · **sustituida parcialmente por [DEC-022](#dec-022)** |
 | [DEC-016](#dec-016) | Ledger inmutable en PostgreSQL (sustituye al JSONL de D3) | Vigente |
 | [DEC-017](#dec-017) | Python 3.13 gestionado por `uv`; stdlib antes que dependencias | Vigente |
 | [DEC-018](#dec-018) | TennisMyLife como fuente primaria; mirror de Sackmann solo como contraste | Vigente |
 | [DEC-019](#dec-019) | Particionado mensual de PostgreSQL en UTC explícito | Vigente |
 | [DEC-020](#dec-020) | Objetivo ATP individual prematch sobre el catálogo `.es`, declarado parcial; 3.5-B se desbloquea | Vigente |
 | [DEC-021](#dec-021) | Definición del precio de cierre (closing price) | Vigente |
+| [DEC-022](#dec-022) | Dos carriles: estudio y paper betting operativo; sustituye parcialmente a DEC-015 | Vigente |
 
 ---
 
@@ -351,7 +352,9 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
 <a id="dec-015"></a>
 ### DEC-015 — No avanzar a Phase 4 hasta cerrar Phase 3.5
 
-- **Fecha:** 2026-09-27 · **Estado:** Temporal
+- **Fecha:** 2026-09-27 · **Estado:** Temporal · **Sustituida parcialmente por
+  [DEC-022](#dec-022)** (2026-11-03): el carril A (paper mínimo) queda permitido; el resto de
+  Phase 4+ (XGBoost y siguientes) sigue bloqueado hasta el criterio de salida de 3.5.
 - **Contexto:** la auditoría de la Semana 1 revela que `close` no es un cierre fiable y que la
   calidad y la disponibilidad del mercado son inciertas.
 - **Decisión:** no empezar el trabajo pendiente de Phase 4 (modelos de probabilidad: XGBoost y
@@ -557,6 +560,64 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
   Application Key.
 - **Fuente:** `migrations/006_market_closing_observation.sql`,
   `src/edgecourt/db/repositories.py`, `tests/test_market_closing_observation.py`.
+
+---
+
+<a id="dec-022"></a>
+### DEC-022 — Dos carriles: estudio y paper betting operativo
+
+- **Fecha:** 2026-11-03 · **Estado:** Vigente (aceptada por el responsable el 2026-11-03) ·
+  **Sustituye parcialmente a:** [DEC-015](#dec-015), que se conserva sin reescribir. La estrategia v1
+  (desvigado, umbral de valor, comisión y momento de apostar) **sigue por fijar** (paso A0)
+- **Contexto:**
+  - DEC-015 bloquea todo trabajo posterior a Phase 3.5, también el que permitiría ver apuestas
+    paper. El responsable quiere ver resultados con dinero ficticio sin esperar a que termine el
+    estudio, y llegar a dinero real solo después, con evidencia.
+  - Cerrados 3.5-A, 3.5-C/C2 y los Pasos 0–1 de 3.5-B, el cierre es medible
+    ([DEC-021](#dec-021)) y el objetivo está fijado ([DEC-020](#dec-020)). Falta 3.5-D.
+  - Las tablas `prediction`, `paper_bet` y `bet_settlement` existen (inmutables, vacías); los
+    módulos `paper/`, `risk/`, `value/` están vacíos y `betfair_runner.player_id` está sin rellenar.
+- **Decisión (propuesta):**
+  - **Carril A — Paper operativo.** Una línea mínima, de extremo a extremo, para individuales ATP
+    prematch: identidad de jugadores, predicción con el modelo promovido a mano
+    ([DEC-013](#dec-013)), valor y riesgo, ledger paper, liquidación y CLV, con interfaz de
+    terminal. Plan: [`phases/PHASE_A_PAPER_LANE_PLAN.md`](phases/PHASE_A_PAPER_LANE_PLAN.md).
+  - **Carril B — Estudio y mejora.** 3.5-D, calibración, CLV, evaluación walk-forward y nuevos
+    modelos (XGBoost). Sigue bloqueado por el criterio de salida de Phase 3.5 en lo que no sea la
+    línea mínima del carril A.
+  - **Reglas del carril A**, para que el paper no se convierta en autoengaño:
+    1. cada estrategia tiene **versión** y se **fija por escrito antes de la primera apuesta**
+       (desvigado, umbral de valor, momento de apostar, stake, filtros);
+    2. **no se ajusta con resultados paper**: un cambio es una versión nueva, con su propio
+       historial;
+    3. el paper lee del collector y **nunca** lo modifica ni lo detiene;
+    4. todo informe de paper lleva la etiqueta «paper, datos retrasados, ejecución supuesta» y
+       **no se presenta como evidencia a favor** de la hipótesis: eso se decide solo con el
+       criterio de [`METRICS.md`](METRICS.md) y [DEC-003](#dec-003);
+    5. un fallo silencioso (sin predicciones, sin liquidar) debe verse en el estado, no esconderse.
+  - **Sin cambios:** [DEC-001](#dec-001) (solo paper; el dinero real exige una DEC nueva, con su
+    propia revisión, y código que hoy no existe), DEC-013 (promoción manual), DEC-016 (ledger
+    inmutable), el collector y `MINIMUM_LIQUIDITY` ([DEC-012](#dec-012)).
+- **Razón:** ver el sistema funcionando de punta a punta es la forma de descubrir fallos
+  operativos (identidad, liquidación, retrasos) que el estudio no revela. Separar los carriles
+  evita bloquear lo uno por lo otro sin renunciar al rigor de lo otro.
+- **Alternativas consideradas:**
+  - mantener DEC-015 hasta cerrar 3.5-D: descartada por el responsable, por el coste de no ver
+    resultados operativos;
+  - construir todo el sistema (XGBoost, Telegram, reentrenamiento) antes de apostar en paper:
+    descartada, por mayor tiempo sin ningún resultado;
+  - saltar al dinero real tras unas semanas de paper: descartada; el tamaño de muestra (~8.700
+    apuestas para el ROI) y la Delayed Key lo impiden.
+- **Consecuencias:**
+  - Se escribe código de `paper/`, `risk/`, `value/` y de identidad en paralelo al estudio.
+  - Los resultados paper serán **optimistas** (datos con 1–180 s de retraso, sin saber si la
+    apuesta se habría casado, profundidad mediana de ~20 €).
+  - Pocas semanas de paper son ruido estadístico: valen para validar la tubería, no para concluir.
+  - Una versión de estrategia queda registrada en el ledger (migración nueva, tablas vacías).
+- **Revisar si:** el carril A consume tiempo que el estudio necesita; el volumen ATP en `.es`
+  (Shanghái sí, Pekín 3, Tokio 0) hace inviable una muestra útil; o cambia la clave o el catálogo.
+- **Fuente:** petición del responsable (2026-11-03),
+  [plan del carril A](phases/PHASE_A_PAPER_LANE_PLAN.md).
 
 ---
 
