@@ -319,6 +319,35 @@ def load_market_states(cursor: psycopg.Cursor, market_ids: list[str]) -> dict[st
     return states
 
 
+def runners_for_identity(cursor: psycopg.Cursor) -> list[dict[str, Any]]:
+    """Runners con su competicion, para emparejar identidades. Solo lectura."""
+    cursor.execute(
+        """
+        SELECT r.market_id, r.selection_id, r.runner_name, r.player_id,
+               e.competition_name, m.market_start_time
+        FROM betfair_runner r
+        JOIN betfair_market m USING (market_id)
+        JOIN betfair_event e USING (event_id)
+        ORDER BY r.market_id, r.selection_id
+        """
+    )
+    return cursor.fetchall()
+
+
+def set_runner_player_id(
+    cursor: psycopg.Cursor, market_id: str, selection_id: int, player_id: str
+) -> bool:
+    """Rellena `player_id` SOLO si esta vacio. Nunca sobrescribe una identidad ya fijada."""
+    cursor.execute(
+        """
+        UPDATE betfair_runner SET player_id = %s
+        WHERE market_id = %s AND selection_id = %s AND player_id IS NULL
+        """,
+        (player_id, market_id, selection_id),
+    )
+    return cursor.rowcount == 1
+
+
 def closing_observations(
     cursor: psycopg.Cursor, *, started_before: datetime | None = None
 ) -> list[dict[str, Any]]:

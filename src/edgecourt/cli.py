@@ -146,6 +146,68 @@ def _cmd_data_freshness(settings: Settings, args: argparse.Namespace) -> int:
     return 1 if stale else 0
 
 
+def _cmd_identity_resolve(settings: Settings, args: argparse.Namespace) -> int:
+    """Empareja los jugadores de Betfair con los del dataset. Determinista, sin fuzzy."""
+    from edgecourt.db import repositories
+    from edgecourt.features.pipeline import MATCHES_DATASET
+    from edgecourt.identity import players, service, tournaments
+    from edgecourt.storage import read_parquet
+
+    columns = [
+        "date",
+        "tourney_name",
+        "surface",
+        "player_a_id",
+        "player_a_name",
+        "player_b_id",
+        "player_b_name",
+    ]
+    matches = read_parquet(settings.processed_dir / MATCHES_DATASET, columns=columns)
+    player_index = players.PlayerIndex.build(matches)
+    surface_index = tournaments.SurfaceIndex.build(matches)
+
+    with _db_connection(settings) as connection:
+        connection.read_only = not args.apply
+        with connection.cursor() as cursor:
+            runners = repositories.runners_for_identity(cursor)
+            report = service.resolve_markets(runners, player_index, surface_index)
+
+            written = 0
+            if args.apply:
+                for market in report.markets:
+                    if market.status in (service.OUT_OF_SCOPE, service.DOUBLES):
+                        continue
+                    for selection_id, _name, resolution in market.runners:
+                        if resolution.status == players.RESOLVED and resolution.player_id:
+                            written += repositories.set_runner_player_id(
+                                cursor, market.market_id, selection_id, resolution.player_id
+                            )
+        if args.apply:
+            connection.commit()
+        else:
+            connection.rollback()
+
+    print("IDENTIDAD DE JUGADORES (Betfair <-> dataset)")
+    print(f"  modo                  : {'APLICAR' if args.apply else 'solo informe (no escribe)'}")
+    print(f"  mercados              : {len(report.markets)}")
+    for status, count in sorted(report.market_status.items(), key=lambda kv: -kv[1]):
+        print(f"    {status:<26}: {count}")
+    print(f"  runners (en alcance)  : {sum(report.runner_status.values())}")
+    for status, count in sorted(report.runner_status.items(), key=lambda kv: -kv[1]):
+        print(f"    {status:<26}: {count}")
+    if args.apply:
+        print(f"  player_id escritos    : {written}")
+    if report.unresolved:
+        print()
+        print("  SIN RESOLVER (revisar a mano; NO se adivina):")
+        for name, resolution in sorted(report.unresolved.items()):
+            hints = ", ".join(f"{pid} {pname}" for pid, pname in resolution.candidates)
+            print(
+                f"    - {name} [{resolution.status}]" + (f" candidatos: {hints}" if hints else "")
+            )
+    return 0
+
+
 def _cmd_data_check(settings: Settings, args: argparse.Namespace) -> int:
     """Contrasta el dataset canonico con la fuente de referencia."""
     result = pipeline.cross_check_against_reference(
@@ -809,6 +871,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="sale con codigo 1 si el ultimo partido es mas antiguo (por defecto 14)",
     )
 
+    identity = sub.add_parser("identity", help="identidad de jugadores Betfair <-> dataset")
+    identity_sub = identity.add_subparsers(dest="subcommand", required=True)
+    resolve = identity_sub.add_parser(
+        "resolve", help="emparejar jugadores (por defecto solo informa; --apply escribe)"
+    )
+    resolve.add_argument(
+        "--apply",
+        action="store_true",
+        help="rellenar betfair_runner.player_id vacios (nunca sobrescribe)",
+    )
+
     train = sub.add_parser("train", help="entrenar un modelo challenger")
     train.add_argument("--slot", default="challenger", choices=["challenger", "production"])
     train.add_argument("--min-matches", type=int, default=10, dest="min_matches")
@@ -952,6 +1025,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data import": _cmd_data_import,
         "data check": _cmd_data_check,
         "data freshness": _cmd_data_freshness,
+        "identity resolve": _cmd_identity_resolve,
         "train": _cmd_train,
         "model compare": _cmd_model_compare,
         "db migrate": _cmd_db_migrate,
