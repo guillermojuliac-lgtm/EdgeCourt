@@ -144,7 +144,7 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
    - 0 `INVALID_SESSION_INFORMATION`, 268 keepAlive correctos y 0 fallos de autenticación.
 4. **Phase 3.5-B: en curso** ([DEC-020](DECISIONS.md#dec-020), [DEC-021](DECISIONS.md#dec-021)).
    - Pasos 0 y 1 **hechos**: definición del cierre aprobada, vista `market_closing_observation`
-     (migración 006) y tests. **Pendiente: aplicar la migración 006 en producción.**
+     (migración 006, **aplicada en producción el 2026-11-03**) y tests.
    - Línea base: 80,9 % de los mercados con precios tienen el cierre a ≤ 5 min del inicio
      publicado (233 de 288, mercados terminados). Causas de los demás en el
      [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md) §8.

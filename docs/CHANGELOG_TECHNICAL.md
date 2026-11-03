@@ -19,7 +19,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 - **Paso 0 (diagnóstico):** de 288 mercados terminados con precios, 233 (80,9 %) tienen el cierre a
   ≤ 5 min del inicio publicado. Los 55 restantes: libro vacío antes del inicio (23), el catálogo
   deja de listarlos antes (27, causa **no verificada**) y aplazados (5).
-- **Pendiente:** aplicar la migración 006 en producción (responsable). **Paso 2 sin autorizar.**
+- **Migración 006 aplicada en producción el 2026-11-03** (esquema 5 → 6; la vista reproduce la línea base: 233 fiables de 289 con cierre en la cohorte desde el 5-oct). **Paso 2 sin autorizar.**
 - **Docs:** [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md).
 
 ## 2026-11-03 — DEC-020: objetivo ATP prematch sobre `.es`, declarado parcial; 3.5-B desbloqueada

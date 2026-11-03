@@ -1,7 +1,7 @@
 # Plan de 3.5-B — Precio de cierre (closing price)
 
 > **Estado (2026-11-03): definición APROBADA ([DEC-021](../DECISIONS.md#dec-021)); Pasos 0 y 1
-> HECHOS (migración 006 pendiente de aplicar en producción); Paso 2 SIN AUTORIZAR.** Se desbloquea
+> HECHOS (migración 006 aplicada en producción el 2026-11-03); Paso 2 SIN AUTORIZAR.** Se desbloquea
 > por [DEC-020](../DECISIONS.md#dec-020). Marco de la fase:
 > [`PHASE_03_5_MARKET_VALIDATION.md`](PHASE_03_5_MARKET_VALIDATION.md) §3.5-B.
 > Antes de tocar el collector, la definición de la §3 debe pasar a `DECISIONS.md` como DEC propia.
@@ -157,6 +157,9 @@ empezado. Restringida a mercados con inicio publicado anterior a *ahora − 12 h
 - `migrations/006_market_closing_observation.sql`: solo crea la vista `market_closing_observation`.
 - `repositories.closing_observations` y `closing_summary` (solo lectura).
 - `tests/test_market_closing_observation.py` (13 tests de integración).
-- **Pendiente:** aplicar la migración en producción (`uv run edgecourt db migrate`, por el
-  responsable) y comprobar que la vista reproduce la línea base (233 de 288 con
-  `started_before = now − 12 h`, salvo el movimiento del reloj).
+- **Aplicada en producción el 2026-11-03** (`edgecourt db migrate`: esquema 5 → 6, sin migraciones
+  pendientes, collector sin tocar y `active`). La vista reproduce la línea base: cohorte desde el
+  5-oct, mercados terminados, **233 fiables de 289 con cierre** (la línea base daba 233 de 288; el
+  mercado extra cruzó el umbral de 12 h entre ambas mediciones).
+- **Toda la historia (476 mercados):** 288 fiables, 107 no fiables y 81 sin cierre. La referencia
+  fue el juego observado en 7 mercados y el inicio publicado en 469.
