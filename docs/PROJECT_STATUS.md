@@ -157,8 +157,9 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 
 - **Carril A (paper) — [DEC-022](DECISIONS.md#dec-022) ACEPTADA (2026-11-03):** dos carriles,
   estudio y paper operativo; sustituye parcialmente a DEC-015. Plan:
-  [`phases/PHASE_A_PAPER_LANE_PLAN.md`](phases/PHASE_A_PAPER_LANE_PLAN.md). **Pendiente:** fijar la
-  estrategia v1 (A0) y elegir el primer paso (A1 datos al día o A2 identidad). Nada implementado.
+  [`phases/PHASE_A_PAPER_LANE_PLAN.md`](phases/PHASE_A_PAPER_LANE_PLAN.md). **A0 hecho:** estrategia
+  v1 congelada como provisional (comisión 5 % y stake mínimo por confirmar). **Siguiente: A1** (datos
+  al día). Nada de código todavía.
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).
 - Uno o dos procesos de larga duración (D9).
 - **Resueltas:** fuente de mercado y alcance ([DEC-020](DECISIONS.md#dec-020), que sustituye a

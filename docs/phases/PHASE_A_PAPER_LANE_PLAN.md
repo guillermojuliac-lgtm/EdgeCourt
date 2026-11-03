@@ -1,7 +1,7 @@
 # Plan del Carril A — Paper betting operativo
 
-> **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; plan en revisión, nada
-> implementado. Siguiente paso: A0 (fijar la estrategia v1).** El Carril B (estudio
+> **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; A0 HECHO (estrategia v1
+> congelada como provisional); nada más implementado. Siguiente paso: A1.** El Carril B (estudio
 > y mejora) sigue su propio ritmo; este plan no lo toca. **Dinero real: fuera de alcance**
 > ([DEC-001](../DECISIONS.md#dec-001)).
 
@@ -27,6 +27,7 @@ empezar a acumular muestra. **No** es una prueba de ventaja (ver §8).
 
 ## 3. Estrategia v1 — a fijar ANTES de la primera apuesta
 
+**Estrategia v1 CONGELADA como provisional el 2026-11-03** ([`PHASE_A_STRATEGY_V1_PROPOSAL.md`](PHASE_A_STRATEGY_V1_PROPOSAL.md), SHA-256 `32fa7eda9958d76b9a77335aa80ba407a0a78f40ec547ec337ee8306d07b6b63`). Los valores de abajo son los de esa versión.
 Cada punto es una **propuesta**; el responsable decide. Una vez fijada, cualquier cambio es la
 versión v2, con su propio historial. Las cifras no son afinadas con datos paper.
 
@@ -148,5 +149,5 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
 
 ## 10. Pendiente de decidir por el responsable
 1. ~~DEC-022~~ **aceptada el 2026-11-03.**
-2. De la estrategia v1 (§3): desvigado, umbral de valor, comisión y momento de apostar (A0).
-3. ¿Empezamos por A1 (datos al día) o por A2 (identidad), que es lo que más bloquea?
+2. ~~Estrategia v1~~ **congelada como provisional (2026-11-03).** Quedan por confirmar la comisión y el stake mínimo de tu cuenta.
+3. ~~¿A1 o A2?~~ Se empieza por **A1** (datos al día).

@@ -8,6 +8,15 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — Estrategia v1 del carril A congelada (provisional)
+
+- **Cambio:** solo documentación. [`PHASE_A_STRATEGY_V1_PROPOSAL.md`](phases/PHASE_A_STRATEGY_V1_PROPOSAL.md)
+  pasa a **congelada** (SHA-256 `32fa7eda9958d76b9a77335aa80ba407a0a78f40ec547ec337ee8306d07b6b63`). Valores: Shin sobre BACK; decisión única entre 20 y 60 min
+  antes del inicio; EV neto ≥ +3 % y edge ≥ 3 pp (anomalía si > 15 pp); stake plano del 1 %.
+- **Supuestos sin verificar:** comisión del 5 % (por defecto del proyecto), stake mínimo de la
+  cuenta y historial mínimo de un jugador. Se corrigen como supuestos, no como cambio de estrategia.
+- **Cambios futuros:** solo como v2, a partir de los estudios del carril B; nunca con resultados paper.
+
 ## 2026-11-03 — DEC-022: dos carriles, estudio y paper operativo
 
 - **Cambio:** solo documentación. Se acepta [DEC-022](DECISIONS.md#dec-022), que **sustituye
