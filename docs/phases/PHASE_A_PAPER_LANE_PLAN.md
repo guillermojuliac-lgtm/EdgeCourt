@@ -1,7 +1,7 @@
 # Plan del Carril A — Paper betting operativo
 
 > **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; A0 HECHO (estrategia v1
-> congelada como provisional); nada más implementado. Siguiente paso: A1.** El Carril B (estudio
+> congelada como provisional); A1 IMPLEMENTADO (pendiente de commit y de `/validar-todo`). Siguiente paso: A2.** El Carril B (estudio
 > y mejora) sigue su propio ritmo; este plan no lo toca. **Dinero real: fuera de alcance**
 > ([DEC-001](../DECISIONS.md#dec-001)).
 
@@ -151,3 +151,29 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
 1. ~~DEC-022~~ **aceptada el 2026-11-03.**
 2. ~~Estrategia v1~~ **congelada como provisional (2026-11-03).** Quedan por confirmar la comisión y el stake mínimo de tu cuenta.
 3. ~~¿A1 o A2?~~ Se empieza por **A1** (datos al día).
+
+## 11. Resultado de A1 (2026-11-03)
+
+- **Datos al día:** `2026.csv` descargado de TennisMyLife y dataset reconstruido con
+  `data import --from-year 1990`: **114.132 partidos (+588)**, último partido **2026-11-01**. Los
+  años anteriores no cambian (mismos errores de validación ya documentados: 139 superficies nulas,
+  1 ronda nula). Copia de seguridad previa en el scratchpad de la sesión.
+- **Refactor del constructor:** la lectura/emisión de features y la actualización del estado se
+  extraen a `_emit_features`, `_record_match` y `_remember_attributes`; `build_features` conserva su
+  firma. **Comprobado** que la tabla de features y la de Elo son **idénticas** (114.132 filas)
+  antes y después del cambio.
+- **Módulo nuevo `features/asof.py`:** `build_asof_state` (≈38 s sobre toda la historia) y
+  `features_for_pair` (23 features de un partido futuro). Rechaza fechas anteriores al último
+  partido del estado. Contra el lote: **0 diferencias** en las 23 features sobre 3 partidos
+  reales de 2026.
+- **Comando nuevo:** `edgecourt data freshness [--max-days 14]` (solo lectura, sale con 1 si el
+  dataset está obsoleto).
+- **Limitación declarada:** para un partido futuro, ranking, puntos, edad y altura son los **del
+  último partido de cada jugador** (edad avanzada hasta la fecha), no el ranking semanal actual.
+  El resultado lo indica (`attribute_source`, `attribute_age_days`).
+- **Tests escritos, no ejecutados:** `tests/test_features_asof.py` (10) y
+  `tests/test_data_freshness.py` (2). Diferidos a `/validar-todo`, que se recomienda antes de
+  confirmar el cambio porque toca `builder.py` y `elo.py`, que alimentan el entrenamiento.
+- **El modelo no se ha reentrenado:** sigue siendo el del 18-sep (entrenado hasta 2022); decidir si
+  reentrenar es del carril B / A3.
+

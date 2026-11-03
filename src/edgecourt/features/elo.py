@@ -126,6 +126,15 @@ def _check_chronological(df: pd.DataFrame) -> None:
         )
 
 
+@dataclass(slots=True)
+class EloState:
+    """Ratings al final de la pasada: lo que hace falta para predecir «hoy»."""
+
+    config: EloConfig
+    overall: _RatingBook
+    by_surface: dict[str, _RatingBook]
+
+
 def compute_elo(df: pd.DataFrame, config: EloConfig | None = None) -> pd.DataFrame:
     """Calcula Elo global y por superficie en una unica pasada cronologica.
 
@@ -137,6 +146,17 @@ def compute_elo(df: pd.DataFrame, config: EloConfig | None = None) -> pd.DataFra
         Un DataFrame con una fila por partido y el estado **previo** de los
         ratings. Nunca contiene el estado posterior: ese es el punto.
     """
+    return _compute_elo(df, config)[0]
+
+
+def compute_elo_state(df: pd.DataFrame, config: EloConfig | None = None) -> EloState:
+    """Ratings finales tras recorrer `df`. Misma pasada que `compute_elo`."""
+    return _compute_elo(df, config)[1]
+
+
+def _compute_elo(
+    df: pd.DataFrame, config: EloConfig | None = None
+) -> tuple[pd.DataFrame, EloState]:
     config = config or EloConfig()
     _check_chronological(df)
 
@@ -230,7 +250,9 @@ def compute_elo(df: pd.DataFrame, config: EloConfig | None = None) -> pd.DataFra
             "surfaces": {s: len(book.ratings) for s, book in by_surface.items()},
         },
     )
-    return result[list(OUTPUT_COLUMNS)]
+    return result[list(OUTPUT_COLUMNS)], EloState(
+        config=config, overall=overall, by_surface=by_surface
+    )
 
 
 def elo_probability(

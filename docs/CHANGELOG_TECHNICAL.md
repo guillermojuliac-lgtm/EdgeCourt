@@ -8,6 +8,22 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — Carril A, A1: datos al día y features «a fecha de hoy»
+
+- **Cambio:**
+  - Dataset de partidos refrescado: 114.132 partidos (+588), hasta el 2026-11-01.
+  - `features/builder.py` y `features/elo.py`: extracción de la emisión y la actualización de estado
+    en funciones reutilizables (la tabla por lotes sale **idéntica**, verificado en 114.132 filas).
+  - Módulo nuevo `features/asof.py`: features de un partido futuro con el estado final; rechaza
+    fechas anteriores al último partido (fuga temporal).
+  - Comando `edgecourt data freshness`.
+- **Verificación:** 0 diferencias frente al lote en 23 features × 3 partidos reales. Tests nuevos
+  escritos (12) **no ejecutados**: diferidos a `/validar-todo`. `ruff` limpio.
+- **Limitación:** ranking, puntos, edad y altura de un partido futuro son los del último partido de
+  cada jugador, no el ranking semanal actual.
+- **Pendiente:** commit, `/validar-todo`, y A2 (identidad de jugadores). Modelo sin reentrenar.
+- **Docs:** [plan del carril A §11](phases/PHASE_A_PAPER_LANE_PLAN.md).
+
 ## 2026-11-03 — Estrategia v1 del carril A congelada (provisional)
 
 - **Cambio:** solo documentación. [`PHASE_A_STRATEGY_V1_PROPOSAL.md`](phases/PHASE_A_STRATEGY_V1_PROPOSAL.md)

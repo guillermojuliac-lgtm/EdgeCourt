@@ -112,6 +112,23 @@ def match_statistics(player: dict[str, float], opponent: dict[str, float]) -> di
 
 
 @dataclass(slots=True)
+class FeatureState:
+    """Estado acumulado tras recorrer un conjunto de partidos.
+
+    Es el mismo que usa la pasada por lotes. Se expone para poder calcular las
+    features de un partido FUTURO «a fecha de hoy» sin duplicar la logica
+    (`features/asof.py`).
+    """
+
+    histories: dict[str, PlayerHistory] = field(default_factory=dict)
+    h2h: dict[tuple[str, str], dict[str, int]] = field(default_factory=dict)
+    # Ultimos atributos conocidos de cada jugador (ranking, puntos, edad, altura)
+    # y la fecha del partido de la que proceden.
+    latest: dict[str, dict[str, object]] = field(default_factory=dict)
+    last_date: pd.Timestamp | None = None
+
+
+@dataclass(slots=True)
 class PlayerHistory:
     """Historial acumulado de un jugador. Solo contiene partidos ya disputados."""
 
@@ -251,21 +268,135 @@ def _check_chronological(df: pd.DataFrame) -> None:
         )
 
 
+def _emit_features(
+    attribute_diffs: dict[str, float],
+    history_a: PlayerHistory,
+    history_b: PlayerHistory,
+    h2h: dict[tuple[str, str], dict[str, int]],
+    player_a: str,
+    player_b: str,
+    surface: str | None,
+    date: pd.Timestamp,
+) -> dict[str, float]:
+    """Features A - B a partir del estado PREVIO. No modifica nada.
+
+    Es el unico lugar donde se calculan: la pasada por lotes y el calculo «a
+    fecha de hoy» lo comparten, de modo que no pueden divergir.
+    """
+    values: dict[str, float] = dict(attribute_diffs)
+
+    for window in FORM_WINDOWS:
+        values[f"winrate_last_{window}_diff"] = history_a.winrate(window) - history_b.winrate(
+            window
+        )
+
+    values["surface_winrate_diff"] = history_a.surface_winrate(surface) - history_b.surface_winrate(
+        surface
+    )
+
+    for stat in STAT_NAMES:
+        values[f"{stat}_diff"] = history_a.mean_stat(stat) - history_b.mean_stat(stat)
+
+    values["days_since_last_match_diff"] = history_a.days_since_last_match(
+        date
+    ) - history_b.days_since_last_match(date)
+
+    for window in LOAD_WINDOWS:
+        values[f"matches_last_{window}_days_diff"] = history_a.matches_in_last_days(
+            date, window
+        ) - history_b.matches_in_last_days(date, window)
+
+    values["minutes_played_last_7_days_diff"] = history_a.minutes_in_last_days(
+        date, 7
+    ) - history_b.minutes_in_last_days(date, 7)
+
+    record = h2h.get(_h2h_key(player_a, player_b))
+    if record is None:
+        values["head_to_head_before_match"] = 0.0
+    else:
+        values["head_to_head_before_match"] = float(
+            record.get(player_a, 0) - record.get(player_b, 0)
+        )
+    return values
+
+
+def _record_match(
+    row: dict,
+    history_a: PlayerHistory,
+    history_b: PlayerHistory,
+    h2h: dict[tuple[str, str], dict[str, int]],
+    player_a: str,
+    player_b: str,
+    surface: str | None,
+    date: pd.Timestamp,
+) -> None:
+    """Incorpora un partido ya emitido al estado. Ignora los no informativos."""
+    status = row.get("completion_status")
+    target = row.get("target")
+    if status in NON_INFORMATIVE_STATUSES or pd.isna(target):
+        return
+
+    a_won = bool(target == 1)
+    minutes = float(row["minutes"]) if pd.notna(row.get("minutes")) else np.nan
+    raw_a, raw_b = _raw_stats(row, "a"), _raw_stats(row, "b")
+
+    history_a.record(
+        won=a_won,
+        surface=surface,
+        stats=match_statistics(raw_a, raw_b),
+        date=date,
+        minutes=minutes,
+    )
+    history_b.record(
+        won=not a_won,
+        surface=surface,
+        stats=match_statistics(raw_b, raw_a),
+        date=date,
+        minutes=minutes,
+    )
+
+    winner = player_a if a_won else player_b
+    key = _h2h_key(player_a, player_b)
+    h2h.setdefault(key, {})[winner] = h2h.setdefault(key, {}).get(winner, 0) + 1
+
+
+def _remember_attributes(state: FeatureState, row: dict, date: pd.Timestamp) -> None:
+    """Guarda los ultimos atributos conocidos de ambos jugadores (para el calculo «hoy»)."""
+    for side in ("a", "b"):
+        player = row[f"player_{side}_id"]
+        state.latest[player] = {
+            "date": date,
+            "rank": row.get(f"player_{side}_rank"),
+            "rank_points": row.get(f"player_{side}_rank_points"),
+            "age": row.get(f"player_{side}_age"),
+            "height": row.get(f"player_{side}_height"),
+        }
+    if pd.notna(date) and (state.last_date is None or date > state.last_date):
+        state.last_date = date
+
+
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Genera la tabla de features. Ver `build_features_with_state`."""
+    return build_features_with_state(df)[0]
+
+
+def build_features_with_state(df: pd.DataFrame) -> tuple[pd.DataFrame, FeatureState]:
     """Genera la tabla de features en una unica pasada cronologica.
 
     Args:
         df: `match_facts` ordenado por la clave de orden total.
 
     Returns:
-        Una fila por partido con las features conocidas **antes** de disputarlo.
-        No incluye `target` ni ninguna columna de resultado: para entrenar se une
-        por `match_id`, de modo que el resultado nunca viaja con las features.
+        Una fila por partido con las features conocidas **antes** de disputarlo
+        y el estado acumulado al final. La tabla no incluye `target` ni ninguna
+        columna de resultado: para entrenar se une por `match_id`, de modo que el
+        resultado nunca viaja con las features.
     """
     _check_chronological(df)
 
-    histories: dict[str, PlayerHistory] = {}
-    h2h: dict[tuple[str, str], dict[str, int]] = {}
+    state = FeatureState()
+    histories = state.histories
+    h2h = state.h2h
 
     n = len(df)
     columns: dict[str, np.ndarray] = {
@@ -293,75 +424,24 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         history_b = histories.setdefault(player_b, PlayerHistory())
 
         # --- 1. LEER el estado previo y emitir features ----------------------
-        columns["ranking_diff"][i] = _numeric_diff(row, "rank")
-        columns["rank_points_diff"][i] = _numeric_diff(row, "rank_points")
-        columns["age_diff"][i] = _numeric_diff(row, "age")
-        columns["height_diff"][i] = _numeric_diff(row, "height")
-
-        for window in FORM_WINDOWS:
-            columns[f"winrate_last_{window}_diff"][i] = history_a.winrate(
-                window
-            ) - history_b.winrate(window)
-
-        columns["surface_winrate_diff"][i] = history_a.surface_winrate(
-            surface
-        ) - history_b.surface_winrate(surface)
-
-        for stat in STAT_NAMES:
-            columns[f"{stat}_diff"][i] = history_a.mean_stat(stat) - history_b.mean_stat(stat)
-
-        columns["days_since_last_match_diff"][i] = history_a.days_since_last_match(
-            date
-        ) - history_b.days_since_last_match(date)
-
-        for window in LOAD_WINDOWS:
-            columns[f"matches_last_{window}_days_diff"][i] = history_a.matches_in_last_days(
-                date, window
-            ) - history_b.matches_in_last_days(date, window)
-
-        columns["minutes_played_last_7_days_diff"][i] = history_a.minutes_in_last_days(
-            date, 7
-        ) - history_b.minutes_in_last_days(date, 7)
-
-        key = _h2h_key(player_a, player_b)
-        record = h2h.get(key)
-        if record is None:
-            columns["head_to_head_before_match"][i] = 0.0
-        else:
-            columns["head_to_head_before_match"][i] = float(
-                record.get(player_a, 0) - record.get(player_b, 0)
-            )
+        attribute_diffs = {
+            "ranking_diff": _numeric_diff(row, "rank"),
+            "rank_points_diff": _numeric_diff(row, "rank_points"),
+            "age_diff": _numeric_diff(row, "age"),
+            "height_diff": _numeric_diff(row, "height"),
+        }
+        values = _emit_features(
+            attribute_diffs, history_a, history_b, h2h, player_a, player_b, surface, date
+        )
+        for name, value in values.items():
+            columns[name][i] = value
 
         experience_a[i] = history_a.total_matches
         experience_b[i] = history_b.total_matches
 
         # --- 2. ACTUALIZAR el estado con el partido ya emitido ---------------
-        status = row.get("completion_status")
-        target = row.get("target")
-        if status in NON_INFORMATIVE_STATUSES or pd.isna(target):
-            continue
-
-        a_won = bool(target == 1)
-        minutes = float(row["minutes"]) if pd.notna(row.get("minutes")) else np.nan
-        raw_a, raw_b = _raw_stats(row, "a"), _raw_stats(row, "b")
-
-        history_a.record(
-            won=a_won,
-            surface=surface,
-            stats=match_statistics(raw_a, raw_b),
-            date=date,
-            minutes=minutes,
-        )
-        history_b.record(
-            won=not a_won,
-            surface=surface,
-            stats=match_statistics(raw_b, raw_a),
-            date=date,
-            minutes=minutes,
-        )
-
-        winner = player_a if a_won else player_b
-        h2h.setdefault(key, {})[winner] = h2h.setdefault(key, {}).get(winner, 0) + 1
+        _record_match(row, history_a, history_b, h2h, player_a, player_b, surface, date)
+        _remember_attributes(state, row, date)
 
     result = pd.DataFrame(
         {
@@ -388,7 +468,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         },
     )
     result.attrs["coverage"] = coverage
-    return result[list(OUTPUT_COLUMNS)]
+    return result[list(OUTPUT_COLUMNS)], state
 
 
 def _numeric_diff(row: dict, field_name: str) -> float:

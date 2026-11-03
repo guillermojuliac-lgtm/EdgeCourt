@@ -123,6 +123,29 @@ def _cmd_data_import(settings: Settings, args: argparse.Namespace) -> int:
     return 0 if result.report.ok else 4
 
 
+def _cmd_data_freshness(settings: Settings, args: argparse.Namespace) -> int:
+    """Antiguedad del dataset de partidos. Solo lectura."""
+    import pandas as pd
+
+    from edgecourt.features.pipeline import MATCHES_DATASET
+    from edgecourt.storage import read_parquet
+
+    matches = read_parquet(settings.processed_dir / MATCHES_DATASET, columns=["date"])
+    last = pd.to_datetime(matches["date"]).max()
+    days = (pd.Timestamp.now().normalize() - last.normalize()).days
+    stale = days > args.max_days
+
+    print("FRESCURA DEL DATASET DE PARTIDOS")
+    print(f"  partidos          : {len(matches):,}")
+    print(f"  ultimo partido    : {last.date()}  (hace {days} dias)")
+    print(f"  umbral            : {args.max_days} dias")
+    print(f"  estado            : {'OBSOLETO' if stale else 'OK'}")
+    if stale:
+        print("  Refrescar: edgecourt data fetch --from-year <ano> --to-year <ano> --force")
+        print("             edgecourt data import --from-year 1990")
+    return 1 if stale else 0
+
+
 def _cmd_data_check(settings: Settings, args: argparse.Namespace) -> int:
     """Contrasta el dataset canonico con la fuente de referencia."""
     result = pipeline.cross_check_against_reference(
@@ -775,6 +798,17 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--from-year", type=int, default=2000, dest="from_year")
     check.add_argument("--to-year", type=int, default=None, dest="to_year")
 
+    freshness = data_sub.add_parser(
+        "freshness", help="antiguedad del dataset de partidos (solo lectura)"
+    )
+    freshness.add_argument(
+        "--max-days",
+        type=int,
+        default=14,
+        dest="max_days",
+        help="sale con codigo 1 si el ultimo partido es mas antiguo (por defecto 14)",
+    )
+
     train = sub.add_parser("train", help="entrenar un modelo challenger")
     train.add_argument("--slot", default="challenger", choices=["challenger", "production"])
     train.add_argument("--min-matches", type=int, default=10, dest="min_matches")
@@ -917,6 +951,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "data fetch": _cmd_data_fetch,
         "data import": _cmd_data_import,
         "data check": _cmd_data_check,
+        "data freshness": _cmd_data_freshness,
         "train": _cmd_train,
         "model compare": _cmd_model_compare,
         "db migrate": _cmd_db_migrate,
