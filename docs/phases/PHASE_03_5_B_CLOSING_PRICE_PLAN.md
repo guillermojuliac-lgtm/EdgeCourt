@@ -1,7 +1,7 @@
 # Plan de 3.5-B — Precio de cierre (closing price)
 
 > **Estado (2026-11-03): definición APROBADA ([DEC-021](../DECISIONS.md#dec-021)); Pasos 0 y 1
-> HECHOS (migración 006 aplicada en producción el 2026-11-03); Paso 2 SIN AUTORIZAR.** Se desbloquea
+> HECHOS (migración 006 aplicada en producción el 2026-11-03); Paso 2 APARCADO por el responsable (2026-11-03).** Se desbloquea
 > por [DEC-020](../DECISIONS.md#dec-020). Marco de la fase:
 > [`PHASE_03_5_MARKET_VALIDATION.md`](PHASE_03_5_MARKET_VALIDATION.md) §3.5-B.
 > Antes de tocar el collector, la definición de la §3 debe pasar a `DECISIONS.md` como DEC propia.
@@ -193,4 +193,15 @@ fallidos, 10 completados y 0 errores de sesión en los 10 min posteriores).
 (C1) y la hipótesis que la justificaría no está demostrada. Opciones, a decidir por el responsable:
 dejarlo aparcado y medir con la vista sobre datos nuevos; o un sondeo prospectivo acotado (sin
 tocar el collector) antes de decidir.
+
+## 11. Decisión: Paso 2 aparcado (2026-11-03)
+
+El responsable aparca el Paso 2. **No se toca el collector ni se hace sondeo prospectivo.**
+- **Motivo:** como mucho mejoraría el 9,4 % de casos (C1), y la hipótesis que lo justificaría no
+  está demostrada ni se puede comprobar a posteriori (§10).
+- **Mientras tanto:** se mide con la vista `market_closing_observation` sobre datos nuevos, y los
+  cierres no fiables se informan, no se descartan (DEC-021).
+- **Se retoma si:** la proporción de no fiables sobre datos nuevos resulta alta para el análisis de
+  CLV, o aparece evidencia de que C1 se debe a la ventana del catálogo. Entonces habría que volver a
+  plantear el Paso 2 con plan y aprobación propios.
 

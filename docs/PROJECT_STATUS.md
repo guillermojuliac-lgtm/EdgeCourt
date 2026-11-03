@@ -148,7 +148,7 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
    - Línea base: 80,9 % de los mercados con precios tienen el cierre a ≤ 5 min del inicio
      publicado (233 de 288, mercados terminados). Causas de los demás en el
      [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md) §8.
-   - **Paso 2** (tocar el collector para ver la transición a juego): **sin autorizar**; como
+   - **Paso 2** (tocar el collector para ver la transición a juego): **APARCADO** el 2026-11-03; como
      mucho mejoraría el 9,4 % de casos. La consulta puntual a la API (3-nov) **no pudo aclarar la
      causa**: la API no conserva ni expone cuándo pasó a juego un mercado ya cerrado
      ([plan §10](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md)).

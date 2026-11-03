@@ -19,6 +19,7 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 - **Paso 0 (diagnóstico):** de 288 mercados terminados con precios, 233 (80,9 %) tienen el cierre a
   ≤ 5 min del inicio publicado. Los 55 restantes: libro vacío antes del inicio (23), el catálogo
   deja de listarlos antes (27, causa **no verificada**) y aplazados (5).
+- **Paso 2 aparcado por el responsable (2026-11-03):** no se toca el collector; se mide con la vista sobre datos nuevos. Ver el plan §11.
 - **Consulta puntual a la API sobre C1 (autorizada, solo lectura):** no concluyente. La API solo conserva los libros de mercados cerrados 1–2 días (7 de 33 devueltos) y los C1 comprobados se jugaron con normalidad; no expone cuándo pasaron a juego. Ver el plan §10.
 - **Migración 006 aplicada en producción el 2026-11-03** (esquema 5 → 6; la vista reproduce la línea base: 233 fiables de 289 con cierre en la cohorte desde el 5-oct). **Paso 2 sin autorizar.**
 - **Docs:** [plan](phases/PHASE_03_5_B_CLOSING_PRICE_PLAN.md).

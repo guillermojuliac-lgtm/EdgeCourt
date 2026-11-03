@@ -551,7 +551,8 @@ que la formule) · `Temporal` (con condición explícita de revisión) · `Susti
   - Tolerancia de 5 min compatible con el retraso de la Delayed Key (1–180 s).
   - Limitación: sin transición a juego observada, el «inicio real» es el último publicado, que es
     inestable. El desvigado y el signo del CLV siguen abiertos.
-  - **Paso 2** (ver la transición a juego, tocando el collector) sigue **sin autorizar**.
+  - **Paso 2** (ver la transición a juego, tocando el collector) **aparcado** por el responsable el
+    2026-11-03; se retoma solo con evidencia y aprobación propias.
 - **Revisar si:** la proporción de no fiables sobre datos nuevos es alta, o cambia el tipo de
   Application Key.
 - **Fuente:** `migrations/006_market_closing_observation.sql`,
@@ -575,7 +576,7 @@ asigna un DEC.
 
 | Tema | Dónde |
 |---|---|
-| Paso 2 de 3.5-B (ver la transición a juego, tocando el collector): condicionado y **sin autorizar** | Phase 3.5-B |
+| Paso 2 de 3.5-B (ver la transición a juego, tocando el collector): **aparcado** (2026-11-03) | Phase 3.5-B |
 | Intervalo de `keepAlive` | Phase 3.5-A |
 | Uno o dos procesos de larga duración (D9) | `docs/ARCHITECTURE.md`, PHASE 15 del plan |
 | Método de desvigado y convención de signo del CLV | `docs/METRICS.md` (se fijará en la fase de Value/CLV) |
