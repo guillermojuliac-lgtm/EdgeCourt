@@ -454,7 +454,8 @@ def test_migration_005_repairs_production_state_without_losing_data(db, tmp_path
 
     applied = migrate(db)
 
-    assert [m.version for m in applied] == [5]
+    # Desde la version 4 se aplica la 005 primero; migraciones posteriores no deben romper el test.
+    assert [m.version for m in applied][0] == 5
     # ANTES = DESPUES: mismas filas, mismo contenido, mismos identificadores.
     assert _fingerprint(db) == before
     # Nada atrapado en default y septiembre pasa a ser el mes UTC exacto.
