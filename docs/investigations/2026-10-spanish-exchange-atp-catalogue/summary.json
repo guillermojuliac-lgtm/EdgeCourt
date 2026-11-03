@@ -1,0 +1,17 @@
+{
+ "since": "2026-09-29T00:00:00Z",
+ "until": "2026-10-19T00:00:00Z",
+ "expected_slots": 960,
+ "ok_runs": 960,
+ "error_runs": 0,
+ "coverage_pct": 100.0,
+ "markets": 407,
+ "match_odds_markets": 405,
+ "competitions": {
+  "ATP Beijing 2026": 4,
+  "ATP Shanghai 2026": 161,
+  "WTA Beijing 2026": 132,
+  "WTA Wuhan 2026": 110
+ },
+ "book_rows": 29922
+}

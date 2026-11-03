@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **Estado ACTUAL, no un histórico.** Se reescribe al cerrar cada tarea relevante.
-> Última actualización: **2026-10-05**.
+> Última actualización: **2026-11-03**.
 > Histórico: [`CHANGELOG_TECHNICAL.md`](CHANGELOG_TECHNICAL.md) · convenciones:
 > [`README.md`](README.md).
 
@@ -82,13 +82,19 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
   - **Del 30-sep a las 23:40 UTC al 5-oct a las 13:17 UTC (109,6 h) no persistió nada** por el
     [incidente de particiones en hora de Madrid](audits/2026-10-partition-timezone-incident.md)
     (1.311 ciclos fallidos). Corregido el 2026-10-05 con la migración 005 y la política UTC
-    ([DEC-019](DECISIONS.md#dec-019)). Se recuperó sin reiniciar; **falta un reinicio controlado**
-    para cargar el código Python nuevo.
+    ([DEC-019](DECISIONS.md#dec-019)). Se recuperó sin reiniciar y el 5-oct se hizo el reinicio
+    controlado que cargó el código nuevo.
   - **Watchdog de systemd** (`Type=notify`, `WatchdogSec=1200`): **VALIDADO en producción**
     el 2026-10-05 (`WatchdogUSec=20min`, READY aceptado, parada limpia, health OK)
     ([auditoría](audits/2026-10-collector-watchdog.md)). Un fallo persistente de ciclos acaba en
     reinicio por systemd; la expiración real no se provocó en producción (la cubren los tests).
   - **Backfill del 1–5 de octubre: decisión = NO REALIZAR** (C2 tiene otra resolución).
+  - **Estado al 2026-11-03:** `active` desde el 2026-11-01 16:04 CET, `NRestarts=0`,
+    `collector health` OK (17.507 observaciones, 686 en 24 h, 668 con precios; 477 mercados).
+    Del 5-oct al 3-nov: ~41.000 ciclos completados y **11 fallidos**, todos el mismo error aislado
+    (`Temporary failure in name resolution` al contactar con el login de Betfair), recuperados en
+    el ciclo siguiente. El watchdog no ha tenido que actuar. Los reinicios del 31-oct y 1-nov
+    fueron paradas por SIGTERM (limpias).
   - Detalle en [`architecture/BETFAIR_COLLECTOR.md`](architecture/BETFAIR_COLLECTOR.md).
 - **Sesión:** keepAlive preventivo cada 15 min (sesión `.es` de 20 min). Verificado en producción
   ([validación](audits/2026-09-session-keepalive-validation.md)).
@@ -114,7 +120,8 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 | Mercado | competiciones en la muestra | Davis Cup, BJK Cup y Laver Cup. **Ningún torneo ATP ni WTA regular** | ídem |
 | Catálogo | exchange visible para la cuenta `.es` (27-sep, 07:22 UTC) | 2 disciplinas (Soccer 2.995, Tennis **3**). Tenis = solo Laver Cup. betfair.com mostraba además ATP 250, WTA 500/250 y Challengers | [investigación 3.5-C](investigations/2026-09-atp-wta-catalogue.md) |
 | Datos | Application Key | **Delayed** (`delayData = true`); libros con `isMarketDataDelayed = true` (retraso de 1–180 s) | ídem |
-| C2 (intermedio, 5-oct) | catálogo `.es` del 29-sep al 5-oct | 313/313 slots (100 %), 155 mercados. WTA Beijing 108; **ATP Beijing 3** (2 individuales y 1 de dobles); **ATP Shanghai 44**; ATP Tokyo 0; Challenger 0. **`.es` ofrece ATP de forma parcial.** No es una conclusión | [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md) |
+| **C2 (final, 3-nov)** | catálogo `.es` del 29-sep al 19-oct | **960/960 slots (100 %)**, 407 mercados. **ATP Shanghai 161 (132 individuales)**; **ATP Beijing 4 (3 individuales)**; ATP Tokyo 0; Challenger 0; WTA Beijing 132; WTA Wuhan 110. **Resultado A con matices:** `.es` ofrece ATP, de forma muy desigual | [Resultados](investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados) |
+| C2 | calidad en torneos regulares (individuales, última hora) | BACK y LAY 97 % (Shanghái); spread del favorito P50 3,6–4,2 %; `top_depth` P50 ~21 €. Delayed Key | ídem |
 | Collector | observaciones perdidas por el incidente de particiones | ~1.700–2.300 y unos 600 hitos (estimación). **No recuperables exactamente**; parcialmente desde C2. Sin backfill | [incidente](audits/2026-10-partition-timezone-incident.md) |
 
 ## Próximos pasos
@@ -122,13 +129,16 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 1. **Decisión del responsable del proyecto sobre la fuente de mercado y el alcance realista.**
    La investigación 3.5-C (completada) indica que el catálogo `.es` no ofreció ATP regular en la
    muestra.
-2. **Phase 3.5-C2:** observación del catálogo `.es` durante ATP 500 (Pekín/Tokio, desde el
-   30-sep) y Masters 1000 (Shanghái, desde el 7-oct).
-   - Experimento **RUNNING** desde el 2026-09-29 00:00 UTC; termina el 2026-10-19 00:00 UTC.
-   - Revisión del 5-oct: cobertura del 100 %; WTA Beijing visible; **ATP Pekín visible en parte**
-     (3 mercados), **ATP Shanghái visible** (44), ATP Tokyo 0 y Challenger 0. **`.es` ofrece ATP de
-     forma parcial.** La conclusión sigue abierta: queda el cuadro principal de Shanghái.
-   - [Protocolo](investigations/2026-10-spanish-exchange-atp-catalogue.md).
+2. **Phase 3.5-C2: DONE** (ventana 29-sep → 19-oct completada; revisión final del 2026-11-03).
+   - Cobertura 960/960 (100 %). **Resultado A con matices:** Shanghái (Masters 1000) 132
+     individuales; Pekín 3; Tokio 0; Challenger 0.
+   - **Calendarios oficiales:** ATP Pekín **confirmado** (30-sep → 6-oct, final Djokovic v De
+     Minaur); Tokio, Shanghái y WTA **NO VERIFICADO** (faltan las URLs correctas de atptour.com
+     y un calendario WTA legible).
+   - **Pendiente:** desactivar el timer, que sigue activo pero no
+     genera datos fuera de la ventana
+     (`sudo systemctl disable --now edgecourt-catalogue-audit.timer`).
+   - [Protocolo y resultados](investigations/2026-10-spanish-exchange-atp-catalogue.md).
    - El collector sigue recogiendo en paralelo (3.5-D).
 3. **Phase 3.5-A: DONE** (2026-09-30).
    - Más de 24 h superadas: unas 69 h revisadas.
@@ -142,12 +152,13 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
 - Definición de closing price (3.5-B).
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).
 - Uno o dos procesos de larga duración (D9).
-- **Monitorización:** cómo detectar «proceso vivo, pero sin persistir». Propuesta en el
-  [incidente](audits/2026-10-partition-timezone-incident.md).
-- **Backfill del 1–5-oct desde C2:** si se hace y con qué criterio.
-- **DEC-002 (objetivo ATP prematch):** se propone mantenerla **vigente pero reformulada**. Con
-  `.es` el objetivo ATP ya no está descartado (hay ATP, incluido un Masters 1000), pero la oferta es
-  parcial. Se decide al cerrar C2.
+- **DEC-002 (objetivo ATP prematch):** C2 ha cerrado. El objetivo ATP **no queda descartado por
+  disponibilidad** (Shanghái, un Masters 1000, se ofreció en volumen), pero la oferta es muy
+  desigual entre torneos (Pekín 3, Tokio 0). Se mantiene **sin reformular**; queda pendiente la
+  decisión del responsable. Resueltas: monitorización (watchdog, validado) y backfill 1–5-oct (NO
+  REALIZAR).
+- Propuesta no registrada: entrada en `DECISIONS.md` sobre no rellenar huecos del collector con
+  datos de otra fuente o resolución.
 
 ## Problemas conocidos
 
@@ -160,8 +171,9 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
   eran individuales masculinos.
 - `betfair_runner.player_id` está vacío: Phase 8b pendiente.
 - **Catálogo `.es` restringido** (investigación 3.5-C y C2). En la primera semana la API no devolvió
-  ATP ni WTA regular. En C2 sí aparece ATP, pero **parcial** (Pekín 3 mercados, Shanghái 44, Tokio
-  0, sin Challenger). EdgeCourt no pierde mercados: la restricción viene de la fuente.
+  ATP ni WTA regular. En C2 sí aparece ATP, pero **muy desigual** (Shanghái 161 mercados, Pekín 4,
+  Tokio 0, sin Challenger). EdgeCourt no pierde mercados: tras el 5-oct no falta ninguno. La
+  restricción viene de la fuente y su causa no está verificada.
 - **Datos retrasados** (Delayed Key, 1–180 s). Con esta clave, `totalMatched` está disponible
   **por mercado** y **no por selección**, según la tabla oficial *Delay & Live Application Keys
   Overview*; los datos son coherentes con ello. Además, la Live Key no admite uso de solo lectura,
@@ -178,10 +190,12 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
   backfill** ([incidente](audits/2026-10-partition-timezone-incident.md)).
 - **Corregido el 2026-10-05:** `collector health` etiquetaba como «UTC» la hora local; ahora
   muestra UTC real terminado en `Z`.
-- **ABIERTO: el servicio puede estar `active` sin persistir nada.** `systemd` solo ve que el
-  proceso vive y `collector health` no lo vigila nadie. Propuesta: watchdog de `systemd` ligado a
-  los ciclos con éxito ([incidente §11](audits/2026-10-partition-timezone-incident.md)). Pendiente
-  de decisión.
+- **Mitigado el 2026-10-05:** watchdog de systemd (`WatchdogSec=1200`) ligado a los ciclos
+  completados ([auditoría](audits/2026-10-collector-watchdog.md)). **Límite:** prueba que el bucle
+  completa ciclos, no que persista (con 0 mercados no se toca la base); `collector health`
+  sigue sin ejecutarse automáticamente.
+- **Residual:** errores puntuales de DNS al contactar con Betfair (11 en 29 días), que se
+  recuperan solos.
 
 **Seguridad**
 - El commit `7eea268` indica que la contraseña de la base de tests quedó expuesta en un

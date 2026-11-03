@@ -8,6 +8,28 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-03 — Cierre de 3.5-C2: el catálogo `.es` ofrece ATP, de forma muy desigual
+
+- **Cambio:** ninguno en código. Revisión final de solo lectura de la ventana completa
+  (29-sep → 19-oct) y sección *Resultados* en la investigación (el protocolo no se modifica).
+  Informe versionado en `docs/investigations/2026-10-spanish-exchange-atp-catalogue/` con
+  `SHA256SUMS` del conjunto bruto.
+- **Resultado:**
+  - Cobertura **960/960 (100 %)** en las tres ventanas; validez cumplida.
+  - 407 mercados: **ATP Shanghai 161** (132 individuales), **ATP Beijing 4** (3 individuales),
+    ATP Tokyo 0, Challenger 0, WTA Beijing 132, WTA Wuhan 110.
+  - **Resultado A con matices.** Calidad en la última hora (individuales): BACK y LAY ≈ 97 %,
+    spread del favorito P50 3,6–4,2 %.
+  - Los 85 mercados que no están en `betfair_market` empezaron antes de la recuperación del
+    collector (5-oct 13:17 UTC): sin problema de descubrimiento.
+- **Calendarios oficiales:** ATP Pekín confirmado (se jugó 30-sep → 6-oct). **NO VERIFICADO:** Tokio, Shanghái y WTA (requisito de validez del protocolo), causa de la
+  oferta desigual, naturaleza de los 24 mercados de Shanghái del 5-oct. **DEC-002 sin modificar.**
+- **Estado del collector (misma revisión):** `active` desde el 1-nov, ~41.000 ciclos y 11 fallidos
+  (DNS puntual) desde el 5-oct, watchdog sin actuar.
+- **Pendiente:** desactivar el timer de C2 (`sudo`, lo ejecuta el responsable). Sin commit.
+- **Docs:** [Resultados](investigations/2026-10-spanish-exchange-atp-catalogue.md#resultados),
+  [Phase 3.5](phases/PHASE_03_5_MARKET_VALIDATION.md).
+
 ## 2026-10-05 — Hardening: watchdog de systemd y salud de particiones
 
 - **Cambio:**
