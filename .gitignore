@@ -60,3 +60,7 @@ notebooks/**/*.ipynb
 .idea/
 .vscode/
 .DS_Store
+
+AGENTS.md
+CLAUDE.md
+.claude/
