@@ -1,7 +1,7 @@
 # Plan del Carril A — Paper betting operativo
 
 > **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; A0 HECHO (estrategia v1
-> congelada como provisional); A1 COMMITEADO (`f17a7c1`, pendiente de `/validar-todo`); A2 IMPLEMENTADO (alias de Cerundolo confirmado; `--apply` pendiente de ejecutar por el responsable). Siguiente paso: A3.** El Carril B (estudio
+> congelada como provisional); A1 COMMITEADO (`f17a7c1`, pendiente de `/validar-todo`); A2 IMPLEMENTADO (alias de Cerundolo confirmado; `--apply` pendiente de ejecutar por el responsable); A3 IMPLEMENTADO (sin ejecutar; tests pendientes de `/validar-todo`). Siguiente paso: A4.** El Carril B (estudio
 > y mejora) sigue su propio ritmo; este plan no lo toca. **Dinero real: fuera de alcance**
 > ([DEC-001](../DECISIONS.md#dec-001)).
 
@@ -98,6 +98,9 @@ Aceptar DEC-022 y fijar por escrito la estrategia v1 (§3). **Sin código.**
 - Temporizador de systemd para predecir, apostar en paper y liquidar, con watchdog/estado como el
   collector. Telegram opcional (resumen diario).
 - Aviso visible cuando algo no se ha ejecutado (sin predicciones, sin liquidar, datos viejos).
+- **Orden obligatorio** (descubierto en A3): `identity resolve --apply` debe ejecutarse **antes**
+  de `predict --apply` en cada pasada. Los mercados nuevos del collector llegan sin `player_id` y
+  `predict` los excluye como `sin_player_id` hasta que se rellene.
 
 ## 5. Interfaz de terminal (boceto, no implementado)
 
@@ -200,4 +203,29 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
   el sistema de permisos denegó la escritura en la base operativa desde la sesión de Claude. La base
   no se ha modificado.
 - **Tests:** `tests/test_identity.py` (20) pasa (20 passed). La suite completa, diferida a `/validar-todo`.
+
+## 13. Resultado de A3 (2026-11-04): predicciones
+
+- **Promoción manual (DEC-013):** `edgecourt model promote <id> --by <responsable>` verifica el
+  SHA-256 del challenger y, solo con `--apply`, lo copia a `models/production/` y lo registra en
+  `model_version` (quién y cuándo); el `production` anterior pasa a `retired` en la misma
+  transacción. Nada promueve solo. Los dos challengers existentes (18-sep, entrenados hasta 2022)
+  siguen sin promover: **elegir cuál, o reentrenar, es decisión del responsable**.
+- **Predicción:** `edgecourt predict` toma el modelo `production` de la base (no «el último
+  fichero»), construye el estado «a fecha de hoy» (A1) y calcula la probabilidad de cada corredor
+  de los mercados que empiezan en las próximas 48 h. Por defecto solo informa; `--apply` escribe en
+  `prediction`, idempotente por (modelo, observación, corredor). El modelo no ve precios: la
+  observación solo ancla la fila para que A4 compare con el precio de ese momento.
+- **Exclusiones (siempre contadas, nunca en silencio):** identidad no lista (A2: fuera de alcance,
+  dobles, jugador o superficie sin resolver), sin observación reciente con precios (6 h), sin
+  `player_id` rellenado, `player_id` distinto de la resolución, historial inferior a
+  `--min-matches` (10) y fecha anterior al último partido de los datos.
+- **Datos viejos:** `predict` se niega (código 1) si el último partido tiene más de
+  `--max-data-age-days` (14) días.
+- **Qué falta para ejecutarlo de verdad:** que el responsable promueva un modelo y ejecute
+  `identity resolve --apply` (hoy `player_id` está vacío, así que todos los mercados saldrían como
+  `sin_player_id`).
+- **Tests escritos, no ejecutados:** `tests/test_prediction.py` (26) y
+  `tests/test_model_promotion.py` (4). Diferidos a `/validar-todo`. Los de integración usan la base
+  de pruebas (`EDGECOURT_TEST_DSN`), nunca la operativa.
 

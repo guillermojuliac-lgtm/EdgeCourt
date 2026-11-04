@@ -8,6 +8,24 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-04 — Carril A, A3: predicciones y promoción manual de modelos
+
+- **Cambio:** paquete `prediction/` (servicio puro), `models/promotion.py`, cuatro funciones de
+  repositorio nuevas (`production_model`, `promote_model`, `markets_for_prediction`,
+  `insert_prediction`) y los comandos `edgecourt model promote <id> --by <responsable> [--apply]` y
+  `edgecourt predict [--apply]`. Ambos solo informan por defecto. `predict` deja de ser un
+  comando reservado. Sin migración ni cambios en el collector.
+- **Diseño:** el modelo `production` es el que está registrado en `model_version` (DEC-013); la
+  promoción verifica el SHA-256, copia a `models/production/` y retira el anterior en la misma
+  transacción. `predict` no predice con datos viejos (umbral 14 días), exige `player_id` ya
+  rellenado y coincidente con la resolución, y cuenta cada mercado excluido con su motivo.
+  Escribe en `prediction` de forma idempotente. El modelo no ve precios.
+- **Verificación:** `ruff` limpio y recolección de tests correcta. Tests nuevos
+  (`tests/test_prediction.py` 26 y `tests/test_model_promotion.py` 4) **escritos y no ejecutados**:
+  diferidos a `/validar-todo`. No se ha tocado la base operativa.
+- **Pendiente:** el responsable decide qué challenger promover (los dos existentes son del 18-sep,
+  entrenados hasta 2022) y ejecuta `identity resolve --apply` antes del primer `predict --apply`.
+
 ## 2026-11-03 — Carril A, A2: identidad de jugadores y superficie del torneo
 
 - **Cambio:** paquete nuevo `identity/` (`players.py`, `tournaments.py`, `service.py`), comando
