@@ -11,13 +11,18 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
-from typing import Any
+from datetime import UTC, date, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 from edgecourt.logging_setup import get_logger
 from edgecourt.market.cadence import MarketState
+
+if TYPE_CHECKING:
+    from edgecourt.models.base import ModelManifest
+    from edgecourt.prediction.service import PredictionRow
 
 log = get_logger("db.repositories")
 
@@ -344,6 +349,140 @@ def set_runner_player_id(
         WHERE market_id = %s AND selection_id = %s AND player_id IS NULL
         """,
         (player_id, market_id, selection_id),
+    )
+    return cursor.rowcount == 1
+
+
+def production_model(cursor: psycopg.Cursor) -> dict[str, Any] | None:
+    """El modelo registrado en `production` (como maximo uno, lo garantiza un indice unico)."""
+    cursor.execute(
+        """
+        SELECT model_id, feature_hash, artifact_sha256, artifact_path, promoted_at, promoted_by
+        FROM model_version WHERE slot = 'production'
+        """
+    )
+    return cursor.fetchone()
+
+
+def promote_model(
+    cursor: psycopg.Cursor,
+    manifest: ModelManifest,
+    *,
+    artifact_path: str,
+    promoted_by: str,
+    notes: str | None = None,
+) -> str | None:
+    """Registra `manifest` como `production`; el anterior pasa a `retired`.
+
+    Es la PROMOCION MANUAL de DEC-013: `promoted_by` y `promoted_at` quedan guardados
+    (`CHECK promotion_requires_who`). Devuelve el `model_id` retirado, o None si no habia.
+    Debe ejecutarse en una transaccion: retira y promueve juntos o nada.
+    """
+    previous = production_model(cursor)
+    if previous is not None and previous["model_id"] == manifest.model_id:
+        raise ValueError(f"{manifest.model_id} ya esta en production")
+    if previous is not None:
+        cursor.execute(
+            "UPDATE model_version SET slot = 'retired' WHERE model_id = %s",
+            (previous["model_id"],),
+        )
+    cursor.execute(
+        """
+        INSERT INTO model_version (
+            model_id, model_type, slot, trained_at, train_first_year, train_last_year,
+            n_train_rows, feature_names, feature_hash, artifact_sha256, artifact_path,
+            hyperparameters, validation_metrics, promoted_at, promoted_by, notes
+        ) VALUES (
+            %(model_id)s, %(model_type)s, 'production', %(trained_at)s::timestamptz,
+            %(first)s, %(last)s, %(rows)s, %(features)s, %(feature_hash)s, %(sha)s, %(path)s,
+            %(hyper)s, %(metrics)s, now(), %(by)s, %(notes)s
+        )
+        ON CONFLICT (model_id) DO UPDATE SET
+            slot = 'production', promoted_at = now(), promoted_by = EXCLUDED.promoted_by,
+            artifact_path = EXCLUDED.artifact_path
+        """,
+        {
+            "model_id": manifest.model_id,
+            "model_type": manifest.model_type,
+            "trained_at": manifest.trained_at,
+            "first": manifest.train_first_year,
+            "last": manifest.train_last_year,
+            "rows": manifest.n_train_rows,
+            "features": list(manifest.feature_names),
+            "feature_hash": manifest.feature_hash,
+            "sha": manifest.artifact_sha256,
+            "path": artifact_path,
+            "hyper": Jsonb(manifest.hyperparameters),
+            "metrics": Jsonb(manifest.validation_metrics),
+            "by": promoted_by,
+            "notes": notes,
+        },
+    )
+    return None if previous is None else previous["model_id"]
+
+
+def markets_for_prediction(
+    cursor: psycopg.Cursor,
+    *,
+    now: datetime,
+    horizon_hours: float,
+    max_observation_age_hours: float = 6.0,
+) -> list[dict[str, Any]]:
+    """Mercados MATCH_ODDS que aun no han empezado, un registro por corredor. Solo lectura.
+
+    Cada registro lleva la ultima observacion prematch con precios de su mercado
+    (`observation_id` NULL si no hay ninguna reciente: el servicio la cuenta como excluida).
+    """
+    cursor.execute(
+        """
+        SELECT m.market_id, m.market_start_time, e.competition_name,
+               r.selection_id, r.runner_name, r.sort_priority, r.player_id,
+               o.observation_id, o.observed_at, o.minutes_to_start
+        FROM betfair_market m
+        JOIN betfair_event e USING (event_id)
+        JOIN betfair_runner r USING (market_id)
+        LEFT JOIN LATERAL (
+            SELECT observation_id, observed_at, minutes_to_start
+            FROM market_observation obs
+            WHERE obs.market_id = m.market_id
+              AND obs.observed_at BETWEEN %(since)s AND %(now)s
+              AND NOT obs.inplay AND obs.market_status = 'OPEN' AND obs.has_prices
+            ORDER BY obs.observed_at DESC
+            LIMIT 1
+        ) o ON true
+        WHERE m.market_type = 'MATCH_ODDS' AND m.settled_at IS NULL
+          AND m.market_start_time > %(now)s AND m.market_start_time <= %(until)s
+        ORDER BY m.market_id, r.selection_id
+        """,
+        {
+            "now": now,
+            "until": now + timedelta(hours=horizon_hours),
+            "since": now - timedelta(hours=max_observation_age_hours),
+        },
+    )
+    return cursor.fetchall()
+
+
+def insert_prediction(cursor: psycopg.Cursor, row: PredictionRow) -> bool:
+    """Inserta una prediccion. Idempotente por (modelo, observacion, corredor)."""
+    cursor.execute(
+        """
+        INSERT INTO prediction (
+            model_id, observation_id, observed_at, market_id, selection_id,
+            probability, feature_hash, features
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (model_id, observation_id, selection_id) DO NOTHING
+        """,
+        (
+            row.model_id,
+            row.observation_id,
+            row.observed_at,
+            row.market_id,
+            row.selection_id,
+            row.probability,
+            row.feature_hash,
+            Jsonb(row.features),
+        ),
     )
     return cursor.rowcount == 1
 

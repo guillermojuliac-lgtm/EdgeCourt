@@ -28,7 +28,6 @@ from edgecourt.storage import dataset_summary
 # Subcomandos previstos y fase en la que se implementan.
 PENDING: dict[str, tuple[str, str]] = {
     "backtest": ("PHASE 7", "Validacion temporal walk-forward"),
-    "predict": ("PHASE 9", "Generar predicciones y evaluar value"),
     "paper status": ("PHASE 11", "Estado del ledger de paper betting"),
     "metrics": ("PHASE 12", "Calcular metricas: Brier, CLV, ROI, drawdown"),
 }
@@ -205,6 +204,160 @@ def _cmd_identity_resolve(settings: Settings, args: argparse.Namespace) -> int:
             print(
                 f"    - {name} [{resolution.status}]" + (f" candidatos: {hints}" if hints else "")
             )
+    return 0
+
+
+def _cmd_model_promote(settings: Settings, args: argparse.Namespace) -> int:
+    """Promueve un challenger a production (DEC-013). Por defecto solo informa; --apply escribe."""
+    from edgecourt.db import repositories
+    from edgecourt.models import promotion
+    from edgecourt.models.registry import ModelIntegrityError
+
+    try:
+        plan = promotion.plan_promotion(
+            args.model_id,
+            challenger_dir=settings.challenger_dir,
+            production_dir=settings.production_dir,
+        )
+    except (FileNotFoundError, ModelIntegrityError) as exc:
+        print(f"No se puede promover: {exc}", file=sys.stderr)
+        return 3
+
+    manifest = plan.manifest
+    retired = None
+    with _db_connection(settings) as connection:
+        connection.read_only = not args.apply
+        with connection.cursor() as cursor:
+            current = repositories.production_model(cursor)
+            print("PROMOCION DE MODELO (manual, DEC-013)")
+            print(f"  modo                   : {'APLICAR' if args.apply else 'solo informe'}")
+            print(f"  candidato              : {manifest.model_id}")
+            print(
+                f"  datos de entrenamiento : {manifest.train_first_year}-{manifest.train_last_year}"
+                f" ({manifest.n_train_rows:,} filas)"
+            )
+            print("  integridad             : OK (SHA-256 verificado)")
+            print(f"  production actual      : {current['model_id'] if current else 'ninguno'}")
+            print(f"  responsable (--by)     : {args.by}")
+            if current is not None and current["model_id"] == manifest.model_id:
+                print("Ya esta en production: no hay nada que hacer.")
+                connection.rollback()
+                return 0
+            if not args.apply:
+                print("Nada se ha escrito. Repetir con --apply para promoverlo.")
+                connection.rollback()
+                return 0
+            artifact = promotion.copy_to_production(plan)
+            retired = repositories.promote_model(
+                cursor, manifest, artifact_path=str(artifact), promoted_by=args.by
+            )
+        connection.commit()
+
+    print(f"  promovido              : {manifest.model_id}")
+    if retired is not None:
+        print(f"  retirado               : {retired}")
+    return 0
+
+
+def _cmd_predict(settings: Settings, args: argparse.Namespace) -> int:
+    """Predicciones del modelo en production para mercados proximos. Por defecto solo informa."""
+    from datetime import UTC, datetime
+
+    import pandas as pd
+
+    from edgecourt.db import repositories
+    from edgecourt.features import asof
+    from edgecourt.features.pipeline import MATCHES_DATASET
+    from edgecourt.identity import players, tournaments
+    from edgecourt.models.registry import ModelIntegrityError, load_model
+    from edgecourt.prediction import service
+    from edgecourt.storage import read_parquet
+
+    matches = read_parquet(settings.processed_dir / MATCHES_DATASET)
+    state = asof.build_asof_state(matches)
+    if state.data_as_of is None:
+        print("El dataset de partidos esta vacio: no se puede predecir.", file=sys.stderr)
+        return 3
+    age_days = (pd.Timestamp.now().normalize() - state.data_as_of.normalize()).days
+    if age_days > args.max_data_age_days:
+        print(
+            f"Datos obsoletos: ultimo partido {state.data_as_of.date()} (hace {age_days} dias, "
+            f"umbral {args.max_data_age_days}). No se predice con datos viejos.",
+            file=sys.stderr,
+        )
+        print("  Ver: edgecourt data freshness", file=sys.stderr)
+        return 1
+
+    player_index = players.PlayerIndex.build(matches)
+    surface_index = tournaments.SurfaceIndex.build(matches)
+
+    inserted = 0
+    with _db_connection(settings) as connection:
+        connection.read_only = not args.apply
+        with connection.cursor() as cursor:
+            current = repositories.production_model(cursor)
+            if current is None:
+                print(
+                    "No hay modelo en production. Promover uno: "
+                    "edgecourt model promote <model_id> --by <responsable> --apply",
+                    file=sys.stderr,
+                )
+                connection.rollback()
+                return 3
+            try:
+                model, manifest = load_model(settings.production_dir, current["model_id"])
+            except (FileNotFoundError, ModelIntegrityError) as exc:
+                print(f"No se puede cargar el modelo de production: {exc}", file=sys.stderr)
+                connection.rollback()
+                return 3
+            if manifest.artifact_sha256 != current["artifact_sha256"]:
+                print(
+                    "El artefacto de production no coincide con el registrado en la base.",
+                    file=sys.stderr,
+                )
+                connection.rollback()
+                return 3
+
+            rows = repositories.markets_for_prediction(
+                cursor, now=datetime.now(UTC), horizon_hours=args.horizon_hours
+            )
+            report = service.predict_markets(
+                rows,
+                state=state,
+                model=model,
+                manifest=manifest,
+                player_index=player_index,
+                surface_index=surface_index,
+                min_matches=args.min_matches,
+            )
+            if args.apply:
+                for row in report.rows:
+                    inserted += repositories.insert_prediction(cursor, row)
+        if args.apply:
+            connection.commit()
+        else:
+            connection.rollback()
+
+    print("PREDICCIONES (probabilidades del modelo; sin cuotas ni apuestas)")
+    print(f"  modo                : {'APLICAR' if args.apply else 'solo informe (no escribe)'}")
+    print(
+        f"  modelo              : {manifest.model_id} "
+        f"(entrenado {manifest.train_first_year}-{manifest.train_last_year})"
+    )
+    print(f"  datos hasta         : {state.data_as_of.date()} (hace {age_days} dias)")
+    print(f"  horizonte           : {args.horizon_hours:g} h")
+    print(f"  mercados proximos   : {report.markets_seen}")
+    print(f"  predichos           : {report.predicted}")
+    for reason, count in sorted(report.excluded.items(), key=lambda kv: -kv[1]):
+        print(f"    excluidos {reason:<28}: {count}")
+    if args.apply:
+        print(f"  filas nuevas        : {inserted} de {len(report.rows)} (el resto ya existia)")
+    for item in sorted(report.markets, key=lambda m: m.start_time)[:20]:
+        start = item.start_time.astimezone(UTC)
+        print(
+            f"    {item.market_id}  {start:%Y-%m-%d %H:%M}Z  {item.name_a} v {item.name_b}  "
+            f"{item.probability_a:.1%} / {item.probability_b:.1%}"
+        )
     return 0
 
 
@@ -970,6 +1123,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     compare.add_argument("--min-matches", type=int, default=10, dest="min_matches")
     compare.add_argument("--no-calibration", action="store_false", dest="calibration")
+    promote = model_sub.add_parser(
+        "promote",
+        help="promover un challenger a production (manual, DEC-013; por defecto solo informa)",
+    )
+    promote.add_argument("model_id", help="identificador del challenger (models/challenger/)")
+    promote.add_argument("--by", required=True, help="responsable de la promocion (se registra)")
+    promote.add_argument(
+        "--apply",
+        action="store_true",
+        help="copiar a models/production/ y registrar en model_version",
+    )
+
+    predict = sub.add_parser(
+        "predict",
+        help="predicciones del modelo en production para mercados proximos (--apply escribe)",
+    )
+    predict.add_argument(
+        "--horizon-hours", type=float, default=48.0, dest="horizon_hours", help="por defecto 48"
+    )
+    predict.add_argument("--min-matches", type=int, default=10, dest="min_matches")
+    predict.add_argument(
+        "--max-data-age-days",
+        type=int,
+        default=14,
+        dest="max_data_age_days",
+        help="no predice si el ultimo partido es mas antiguo (por defecto 14)",
+    )
+    predict.add_argument(
+        "--apply", action="store_true", help="guardar en prediction (idempotente, nunca duplica)"
+    )
 
     elo = sub.add_parser("elo", help="Elo global y por superficie")
     elo_sub = elo.add_subparsers(dest="subcommand", required=True)
@@ -1028,6 +1211,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "identity resolve": _cmd_identity_resolve,
         "train": _cmd_train,
         "model compare": _cmd_model_compare,
+        "model promote": _cmd_model_promote,
+        "predict": _cmd_predict,
         "db migrate": _cmd_db_migrate,
         "db status": _cmd_db_status,
         "db import-parquet": _cmd_db_import_parquet,
