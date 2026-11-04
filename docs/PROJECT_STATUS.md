@@ -159,7 +159,7 @@ Betfair (solo lectura) ─► collector (systemd) ─► PostgreSQL ─► expor
   estudio y paper operativo; sustituye parcialmente a DEC-015. Plan:
   [`phases/PHASE_A_PAPER_LANE_PLAN.md`](phases/PHASE_A_PAPER_LANE_PLAN.md). **A0 hecho:** estrategia
   v1 congelada como provisional (comisión 5 % y stake mínimo por confirmar). **A1 implementado**
-  (datos al 2026-11-01 y features «a fecha de hoy»; pendiente de commit y `/validar-todo`).
+  (datos al 2026-11-01 y features «a fecha de hoy»; commit `f17a7c1`; pendiente de `/validar-todo`).
   **A2 implementado** (156 mercados listos, alias de Cerundolo confirmado; falta que el responsable
   ejecute `identity resolve --apply`). **Siguiente: A3** (predicciones).
 - Método de desvigado y convención de signo del CLV (fase de Value/CLV).

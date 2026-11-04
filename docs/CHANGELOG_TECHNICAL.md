@@ -15,8 +15,8 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
   `set_runner_player_id`, que solo rellena vacíos). Sin migración ni cambios en el collector.
 - **Resultado (informe, sin escribir):** 156 mercados ATP individuales listos y 312 de 312 runners
   resueltos, tras confirmar el responsable el alias «Manuel Cerundolo» = C0C8 (antes: 151 y 307).
-- **Verificación:** `ruff` limpio. Tests (18) **escritos y no ejecutados**: diferidos a
-  `/validar-todo`. La base operativa no se ha modificado.
+- **Verificación:** `ruff` limpio. `tests/test_identity.py` (20) **pasa** (20 passed). La suite
+  completa queda diferida a `/validar-todo`. La base operativa no se ha modificado.
 - **Pendiente:** ejecutar `uv run edgecourt identity resolve --apply` (lo hace el responsable; la
   escritura fue denegada por permisos desde la sesión), commit y `/validar-todo`.
 

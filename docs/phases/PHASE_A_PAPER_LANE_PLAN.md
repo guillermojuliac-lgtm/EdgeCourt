@@ -199,5 +199,5 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
   está vacío** (nunca sobrescribe) y es idempotente. **Pendiente de ejecutar por el responsable**:
   el sistema de permisos denegó la escritura en la base operativa desde la sesión de Claude. La base
   no se ha modificado.
-- **Tests escritos, no ejecutados:** `tests/test_identity.py` (18). Diferidos a `/validar-todo`.
+- **Tests:** `tests/test_identity.py` (20) pasa (20 passed). La suite completa, diferida a `/validar-todo`.
 
