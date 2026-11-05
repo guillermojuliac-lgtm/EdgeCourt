@@ -1,7 +1,7 @@
 # Plan del Carril A — Paper betting operativo
 
 > **Estado (2026-11-03): [DEC-022](../DECISIONS.md#dec-022) ACEPTADA; A0 HECHO (estrategia v1
-> congelada como provisional); A1 COMMITEADO (`f17a7c1`, pendiente de `/validar-todo`); A2 IMPLEMENTADO (alias de Cerundolo confirmado; `--apply` pendiente de ejecutar por el responsable); A3 IMPLEMENTADO (sin ejecutar; tests pendientes de `/validar-todo`). Siguiente paso: A4.** El Carril B (estudio
+> congelada como provisional); A1 COMMITEADO (`f17a7c1`, pendiente de `/validar-todo`); A2 IMPLEMENTADO (alias de Cerundolo confirmado; `--apply` pendiente de ejecutar por el responsable); A3 COMMITEADO (`db404bf`); A4 IMPLEMENTADO (sin ejecutar; tests pendientes de `/validar-todo`). Siguiente paso: A5.** El Carril B (estudio
 > y mejora) sigue su propio ritmo; este plan no lo toca. **Dinero real: fuera de alcance**
 > ([DEC-001](../DECISIONS.md#dec-001)).
 
@@ -154,6 +154,8 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
 1. ~~DEC-022~~ **aceptada el 2026-11-03.**
 2. ~~Estrategia v1~~ **congelada como provisional (2026-11-03).** Quedan por confirmar la comisión y el stake mínimo de tu cuenta.
 3. ~~¿A1 o A2?~~ Se empieza por **A1** (datos al día).
+4. **Stake mínimo de la cuenta `.es`** (A4 usa 2,00 como supuesto sin verificar) y **comisión real**
+   (5 % supuesto). Son correcciones de supuesto, no cambios de estrategia.
 
 ## 11. Resultado de A1 (2026-11-03)
 
@@ -225,7 +227,38 @@ el Carril B. El carril A **lee** del collector; nunca lo modifica ni lo detiene.
 - **Qué falta para ejecutarlo de verdad:** que el responsable promueva un modelo y ejecute
   `identity resolve --apply` (hoy `player_id` está vacío, así que todos los mercados saldrían como
   `sin_player_id`).
-- **Tests escritos, no ejecutados:** `tests/test_prediction.py` (26) y
-  `tests/test_model_promotion.py` (4). Diferidos a `/validar-todo`. Los de integración usan la base
-  de pruebas (`EDGECOURT_TEST_DSN`), nunca la operativa.
+- **Tests:** `tests/test_prediction.py` (26) y `tests/test_model_promotion.py` (4); se validan con
+  `/validar-todo`. Los de integración usan la base de pruebas (`EDGECOURT_TEST_DSN`), nunca la
+  operativa.
+
+## 14. Resultado de A4 (2026-11-04): valor y riesgo
+
+- **Funciones puras** (sin base de datos ni red): `value/devig.py` (Shin de dos resultados, forma
+  estable y bisección determinista; proporcional como referencia), `value/ticks.py` (escalera de
+  Betfair, para la variante pesimista de un tick peor), `risk/limits.py` (stake plano y topes),
+  `value/strategy.py` (la regla v1) y `value/candidates.py` (agrupa filas, decide y acumula).
+- **Regla v1 tal como está congelada:** Shin sobre los mejores precios BACK; `edge ≥ 3 pp` y
+  `EV neto ≥ +3 %`; `edge > 15 pp` = anomalía (no se apuesta, se lista); un runner por mercado (el de
+  mayor EV neto); decisión única en la primera observación con precios a 20–60 min del inicio. Los
+  umbrales **no se leen de la configuración**; un test fija el SHA-256 del documento de estrategia.
+- **Limites** (`config.py`): stake ≤ 1 %, mercado ≤ 2 %, día ≤ 5 % del bankroll inicial,
+  drawdown ≥ 20 % = parar. El stake es el menor de todos los topes, redondeado al céntimo hacia
+  abajo; si queda por debajo del mínimo o del tamaño visible al mejor BACK, no se apuesta y se
+  cuenta el motivo. La exposición diaria se acumula **dentro de una pasada**, en orden
+  cronológico, por día UTC de la observación de decisión.
+- **CLI:** `edgecourt paper candidates [--horizon-hours]`. **Solo lectura** (sesión `read_only`, sin
+  `--apply`): lee el modelo `production`, las predicciones guardadas y la observación de decisión, y
+  muestra candidatos, anomalías y exclusiones por motivo. No escribe nada: el ledger es A5.
+- **Supuestos sin verificar que A4 usa:** comisión 5 % y **stake mínimo 2,00** (inventado como
+  valor prudente; el documento de estrategia dice «pendiente»). `MINIMUM_LIQUIDITY` (50, DEC-012)
+  se aplica al `total_available` del mercado, sin tratarlo como garantía de ejecutabilidad.
+- **Lo que A4 deja a A5** (hallazgos de diseño, no implementados):
+  1. Las predicciones de A3 se anclan a la última observación en el momento de `predict`, no a la
+     observación de decisión. `candidates` usa la **última predicción** del modelo `production` para
+     cada corredor; el modelo no ve precios, así que la probabilidad no depende de la observación.
+     El ledger deberá enlazar `prediction_id` y exigir `predicted_at` anterior a `placed_at`.
+  2. Sin ledger no hay exposición previa ni drawdown: `candidates` los toma como 0.
+  3. La variante pesimista (un tick peor) solo se **muestra**; guardarla es de A5.
+- **Tests:** `tests/test_value_devig.py` (68), `tests/test_risk_limits.py` (11) y
+  `tests/test_value_strategy.py` (36); se validan con `/validar-todo`.
 

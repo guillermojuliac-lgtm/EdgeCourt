@@ -8,6 +8,23 @@ Las entradas anteriores al 2026-09-27 se han reconstruido a partir de los mensaj
 
 ---
 
+## 2026-11-04 — Carril A, A4: valor y riesgo (funciones puras) y `paper candidates`
+
+- **Cambio:** `value/` (`devig.py` Shin de dos resultados, `ticks.py` escalera de Betfair,
+  `strategy.py` regla v1, `candidates.py`), `risk/limits.py` (stake plano y límites),
+  `repositories.candidate_rows` y el comando `edgecourt paper candidates` (solo lectura). El grupo
+  `paper` se crea explícitamente; `paper status` sigue reservado. Sin migración ni cambios en el
+  collector ni en A3.
+- **Diseño:** implementa la estrategia v1 congelada sin tocar sus umbrales (un test fija el SHA-256
+  del documento y que no se leen de la configuración). La exposición diaria se acumula dentro de la
+  pasada. Supuestos sin verificar: comisión 5 % y stake mínimo 2,00 (este último elegido por
+  prudencia; pendiente de confirmar con la cuenta).
+- **Verificación:** `ruff` limpio y recolección de tests correcta. Tests nuevos
+  (`test_value_devig.py` 68, `test_risk_limits.py` 11, `test_value_strategy.py` 36) **escritos y no
+  ejecutados**: diferidos a `/validar-todo`. No se ha tocado la base operativa.
+- **Pendiente:** confirmar comisión y stake mínimo; A5 (ledger) debe enlazar la predicción previa a
+  cada apuesta (ver §14 del plan).
+
 ## 2026-11-04 — Carril A, A3: predicciones y promoción manual de modelos
 
 - **Cambio:** paquete `prediction/` (servicio puro), `models/promotion.py`, cuatro funciones de
