@@ -487,6 +487,72 @@ def insert_prediction(cursor: psycopg.Cursor, row: PredictionRow) -> bool:
     return cursor.rowcount == 1
 
 
+def candidate_rows(
+    cursor: psycopg.Cursor,
+    *,
+    model_id: str,
+    now: datetime,
+    horizon_hours: float,
+    window_min_minutes: float,
+    window_max_minutes: float,
+) -> list[dict[str, Any]]:
+    """Mercados proximos con su observacion de decision y la prediccion. Solo lectura.
+
+    Observacion de decision (estrategia v1): la PRIMERA observacion prematch con precios cuyos
+    minutos hasta el inicio esten en [window_min, window_max]. Si aun no existe, sus campos
+    quedan NULL. La prediccion es la mas reciente del modelo `model_id` para cada corredor.
+    Un registro por corredor.
+    """
+    cursor.execute(
+        """
+        SELECT m.market_id, m.market_start_time, e.competition_name,
+               r.selection_id, r.runner_name,
+               d.observation_id, d.observed_at, d.minutes_to_start, d.total_available,
+               p.back_price_1 AS back_price, p.back_size_1 AS back_size,
+               pr.probability, pr.predicted_at
+        FROM betfair_market m
+        JOIN betfair_event e USING (event_id)
+        JOIN betfair_runner r USING (market_id)
+        LEFT JOIN LATERAL (
+            SELECT observation_id, observed_at, minutes_to_start, total_available
+            FROM market_observation o
+            WHERE o.market_id = m.market_id
+              AND o.observed_at BETWEEN %(since)s AND %(now)s
+              AND NOT o.inplay AND o.market_status = 'OPEN' AND o.has_prices
+              AND o.minutes_to_start BETWEEN %(window_min)s AND %(window_max)s
+            ORDER BY o.observed_at ASC
+            LIMIT 1
+        ) d ON true
+        LEFT JOIN runner_price p
+               ON p.observation_id = d.observation_id
+              AND p.observed_at = d.observed_at
+              AND p.selection_id = r.selection_id
+        LEFT JOIN LATERAL (
+            SELECT x.probability, x.predicted_at
+            FROM prediction x
+            WHERE x.model_id = %(model_id)s
+              AND x.market_id = m.market_id AND x.selection_id = r.selection_id
+            ORDER BY x.predicted_at DESC
+            LIMIT 1
+        ) pr ON true
+        WHERE m.market_type = 'MATCH_ODDS' AND m.settled_at IS NULL
+          AND m.market_start_time > %(now)s AND m.market_start_time <= %(until)s
+        ORDER BY m.market_id, r.selection_id
+        """,
+        {
+            "model_id": model_id,
+            "now": now,
+            "until": now + timedelta(hours=horizon_hours),
+            # Una observacion de decision de un mercado que aun no ha empezado es posterior a
+            # `inicio - window_max`, es decir, a `now - window_max`: acota las particiones.
+            "since": now - timedelta(minutes=window_max_minutes + 1),
+            "window_min": window_min_minutes,
+            "window_max": window_max_minutes,
+        },
+    )
+    return cursor.fetchall()
+
+
 def closing_observations(
     cursor: psycopg.Cursor, *, started_before: datetime | None = None
 ) -> list[dict[str, Any]]:

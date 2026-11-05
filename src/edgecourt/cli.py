@@ -361,6 +361,81 @@ def _cmd_predict(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_paper_candidates(settings: Settings, args: argparse.Namespace) -> int:
+    """Que apostaria la estrategia v1 ahora mismo. Solo lectura: no escribe nada."""
+    from datetime import UTC, datetime
+
+    from edgecourt.db import repositories
+    from edgecourt.risk.limits import RiskLimits
+    from edgecourt.value import candidates as candidates_module
+    from edgecourt.value import strategy as rules
+
+    strategy = rules.StrategyV1.from_settings(settings)
+    limits = RiskLimits.from_settings(settings)
+
+    with _db_connection(settings) as connection:
+        connection.read_only = True
+        with connection.cursor() as cursor:
+            current = repositories.production_model(cursor)
+            if current is None:
+                print(
+                    "No hay modelo en production. Promover uno: "
+                    "edgecourt model promote <model_id> --by <responsable> --apply",
+                    file=sys.stderr,
+                )
+                connection.rollback()
+                return 3
+            rows = repositories.candidate_rows(
+                cursor,
+                model_id=current["model_id"],
+                now=datetime.now(UTC),
+                horizon_hours=args.horizon_hours,
+                window_min_minutes=strategy.window_min_minutes,
+                window_max_minutes=strategy.window_max_minutes,
+            )
+        connection.rollback()
+
+    report = candidates_module.find_candidates(rows, strategy=strategy, limits=limits)
+
+    print("PAPER | estrategia v1 | datos retrasados | ejecucion supuesta")
+    print("CANDIDATOS (solo lectura: no se apuesta ni se escribe nada)")
+    print(f"  modelo               : {current['model_id']}")
+    print(
+        f"  supuestos sin verificar: comision {strategy.commission:.1%}, "
+        f"stake minimo {strategy.min_stake:.2f}"
+    )
+    print(
+        f"  ventana de decision  : {strategy.window_min_minutes:g}-"
+        f"{strategy.window_max_minutes:g} min antes del inicio (primera observacion con precios)"
+    )
+    print("  ledger               : aun no existe (A5): exposicion previa 0, drawdown 0")
+    print(f"  mercados proximos    : {report.markets_seen}")
+    print(
+        f"  candidatos           : {len(report.candidates)}  (stake total {report.total_stake:.2f})"
+    )
+    print(f"  anomalias (no se apuestan): {len(report.anomalies)}")
+    for reason, count in sorted(report.excluded.items(), key=lambda kv: -kv[1]):
+        print(f"    excluidos {reason:<32}: {count}")
+
+    for title, items in (("CANDIDATOS", report.candidates), ("ANOMALIAS", report.anomalies)):
+        if not items:
+            continue
+        print()
+        print(f"  {title}")
+        for item in items:
+            runner = item.chosen
+            print(
+                f"    {item.market_id}  {item.title}  -> {runner.name} @ {runner.price:g}  "
+                f"p_modelo {runner.model_probability:.1%}  "
+                f"p_mercado {runner.market_probability_devig:.1%}  "
+                f"edge {runner.edge * 100:+.1f}pp  "
+                f"EV neto {runner.expected_value_after_costs:+.1%} "
+                f"(un tick peor {runner.expected_value_after_costs_pessimistic:+.1%})  "
+                f"stake {item.stake:.2f}"
+            )
+    return 0
+
+
 def _cmd_data_check(settings: Settings, args: argparse.Namespace) -> int:
     """Contrasta el dataset canonico con la fuente de referencia."""
     result = pipeline.cross_check_against_reference(
@@ -1168,8 +1243,19 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--min-matches", type=int, default=10, dest="min_matches")
     evaluate.add_argument("--no-calibration", action="store_false", dest="calibration")
 
-    # Subcomandos pendientes, agrupados por familia cuando tienen subniveles.
-    groups: dict[str, argparse.ArgumentParser] = {}
+    paper = sub.add_parser("paper", help="paper betting (por ahora solo lectura)")
+    paper_sub = paper.add_subparsers(dest="subcommand", required=True)
+    candidates = paper_sub.add_parser(
+        "candidates",
+        help="que apostaria la estrategia v1 ahora (solo lectura, no escribe nada)",
+    )
+    candidates.add_argument(
+        "--horizon-hours", type=float, default=48.0, dest="horizon_hours", help="por defecto 48"
+    )
+
+    # Subcomandos pendientes, agrupados por familia cuando tienen subniveles. `paper` ya existe:
+    # los pendientes de ese grupo (p. ej. `paper status`) se anaden a el.
+    groups: dict[str, argparse.ArgumentParser] = {"paper": paper_sub}
     for key in PENDING:
         head, _, tail = key.partition(" ")
         if not tail:
@@ -1213,6 +1299,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "model compare": _cmd_model_compare,
         "model promote": _cmd_model_promote,
         "predict": _cmd_predict,
+        "paper candidates": _cmd_paper_candidates,
         "db migrate": _cmd_db_migrate,
         "db status": _cmd_db_status,
         "db import-parquet": _cmd_db_import_parquet,
